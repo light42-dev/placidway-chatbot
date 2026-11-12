@@ -35,3 +35,6 @@ MAX_INPUT_CHARS = 4000      # a longer user message is rejected with HTTP 413
 MAX_HISTORY_MESSAGES = 8    # older messages are dropped to protect the token budget
 MAX_HISTORY_CHARS = 600     # each kept earlier message is cut to this length
 CONTEXT_CHARS = 4800        # total size of the passages given to the model
+RATE_LIMIT_REQUESTS = 8     # per session (or client IP) ...
+RATE_LIMIT_WINDOW_S = 10    # ... in any 10 seconds; more get HTTP 429
+REPLY_CACHE_TTL_S = 30      # an identical conversation within this time is answered from memory
