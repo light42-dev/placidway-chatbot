@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 from . import config
+from .guard import make_reply_safe, security_note
 from .llm import complete
 from .pages import PAGE_BY_KEY, PAGES
 from .retriever import Passage, find_focus_page, load_index
@@ -140,6 +141,8 @@ def answer(messages: list[dict]) -> dict:
     passages = load_index().search(user_messages, focus_page=focus)
     history = _clean_history(conversation)
     dropped = conversation[:len(conversation) - len(history)]
-    completion = complete(_system_prompt(passages, _earlier_prices(dropped)), history)
-    text, sources = _cite(completion.text, passages)
+    system = _system_prompt(passages, _earlier_prices(dropped))
+    note = security_note(user_messages)      # only when someone tries prompt injection
+    completion = complete(system + ("\n\n" + note if note else ""), history)
+    text, sources = _cite(make_reply_safe(completion.text, user_messages, RULES, focus), passages)
     return _reply(text, sources, completion)
