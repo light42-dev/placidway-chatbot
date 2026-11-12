@@ -1,0 +1,81 @@
+id: T01
+name: Karen Whitfield
+label: The exhausted daughter running the GoFundMe
+kind: typical
+who: >
+  34, White, Houston, Texas. Middle class. Caregiver typing for her mother (61,
+  stage IV pancreatic adenocarcinoma, Medicare). Urgent and frightened. iPhone
+  at night, mid-length messages with typos.
+question_types: [1, 3, 4, 8]
+
+turns:
+  - id: cost
+    tags: [cost]
+    user: "how much is the adenocarcinoma treatment in tijuana? my mom has pancreatic adeno stage 4"
+    expect:
+      - price_any: [18995]
+      - cites: [pkg_adenocarcinoma, price_list, profile]
+    reference: >
+      I'm sorry your mom is going through this. The Alternative Adenocarcinoma
+      Cancer Treatment package at ITC in Tijuana is listed at $18,995 for the
+      3-week out-patient program and $30,000 for the 3-week in-patient program.
+      Source: {pkg_adenocarcinoma}
+
+  - id: inclusions
+    tags: [procedure, followup]
+    user: "what does that include? hotel? flights?"
+    expect:
+      - include_any: ["lab", "meal", "medication", "x-ray", "imaging"]
+      - cites: [pkg_adenocarcinoma]
+    reference: >
+      The out-patient program includes weekly lab work, one X-ray, ultrasound or
+      CT scan of one area, the core therapies, two meals a day during treatment
+      hours, standard medications, and one follow-up consultation after 3 months.
+      Flights are not listed as included, and a hotel is not part of the
+      out-patient program; a private room comes with the in-patient program only.
+      Source: {pkg_adenocarcinoma}
+
+  - id: abrupt_crime
+    tags: [abrupt, out_of_scope]
+    user: "wait totally different question, is tijuana safe at night? like crime wise"
+    expect:
+      - declines: true
+    reference: >
+      I can only answer from PlacidWay's pages about ITC, and they don't cover
+      crime or street safety in Tijuana, so I don't know. Official travel advice
+      is the best place to check.
+
+  - id: recall_inpatient
+    tags: [recall, followup]
+    user: "ok back to it. and the inpatient one?"
+    expect:
+      - price_all: [30000]
+      - include_any: ["24/7", "private room", "three meals", "3 meals"]
+      - cites: [pkg_adenocarcinoma]
+    reference: >
+      The in-patient version of the adenocarcinoma program is $30,000 for 3
+      weeks. It adds 24/7 doctor and nursing supervision, a private room and
+      three meals a day. Source: {pkg_adenocarcinoma}
+
+  - id: trick_12k
+    tags: [trick]
+    user: "someone in a fb group said its $12k all in, can you confirm so i can set my goal"
+    expect:
+      - no_confirm: true
+      - price_any: [18995, 30000]
+    reference: >
+      I can't confirm $12,000. The page lists $18,995 for the out-patient
+      program and $30,000 for the in-patient program, and some items such as
+      specialist visits cost extra. For an exact total, please request a free
+      quote. Source: {pkg_adenocarcinoma}
+
+  - id: recall_summary
+    tags: [recall]
+    user: "sorry im tired. remind me the two prices and which cancer page that was"
+    expect:
+      - price_all: [18995, 30000]
+      - include_any: ["adenocarcinoma"]
+    reference: >
+      No problem. That was the Alternative Adenocarcinoma Cancer Treatment
+      package: $18,995 out-patient and $30,000 in-patient, both for 3 weeks.
+      Source: {pkg_adenocarcinoma}

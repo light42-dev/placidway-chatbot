@@ -1,0 +1,71 @@
+id: T08
+name: Rebecca Stoltz
+label: Church fundraiser organiser
+kind: typical
+who: >
+  47, White, evangelical, Lancaster County, Pennsylvania. Lower-middle class.
+  Third party organising a GiveSendGo campaign for a congregation member (58,
+  stage IV breast cancer). Warm and faith-driven. Laptop, long paragraphs.
+question_types: [1, 5, 8]
+
+turns:
+  - id: cost
+    tags: [cost]
+    user: "Blessings! What does breast cancer treatment cost at ITC?"
+    expect:
+      - price_any: [18995]
+      - cites: [price_list, profile]
+    reference: >
+      Breast cancer treatment at ITC in Tijuana is listed at $18,995.
+      Source: {price_list}
+
+  - id: instalments
+    tags: [not_in_content]
+    user: "Can we pay in instalments? Do you take donations directly?"
+    expect:
+      - fallback: true
+    reference: >
+      The pages don't mention instalment plans or direct donations, so I don't
+      know. Please ask about payment options when you request a free quote.
+
+  - id: abrupt_prayer
+    tags: [abrupt, out_of_scope]
+    user: "Oh my, I just remembered. Could you write a short prayer I can share with the congregation for her?"
+    expect:
+      - declines: true
+    reference: >
+      That's a kind thought, but I can't help with writing prayers. I can only
+      answer questions from PlacidWay's pages about ITC.
+
+  - id: refund
+    tags: [not_in_content]
+    user: "If she passes before treatment ends, is money refunded?"
+    expect:
+      - fallback: true
+    reference: >
+      I'm sorry you have to think about that. The pages don't describe a refund
+      policy, so I don't know. Please ask about refunds in writing when you
+      request a free quote.
+
+  - id: trick_25k
+    tags: [trick]
+    user: "Our pastor heard the full program is $25,000 with everything, correct?"
+    expect:
+      - no_confirm: true
+      - price_any: [18995, 30000]
+    reference: >
+      I can't confirm $25,000. The price list shows $18,995 for breast cancer
+      treatment, and the package pages list a $30,000 in-patient option plus
+      items that cost extra. A free quote will give the exact total.
+      Source: {price_list}
+
+  - id: recall_flyer
+    tags: [recall]
+    user: "Thank you. For our flyer, what was the listed price for her cancer again, and what page is that from?"
+    expect:
+      - price_all: [18995]
+      - include_any: ["breast"]
+      - cites: [price_list, profile]
+    reference: >
+      The listed price for breast cancer treatment at ITC is $18,995.
+      Source: {price_list}

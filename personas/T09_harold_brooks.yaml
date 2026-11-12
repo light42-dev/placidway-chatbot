@@ -1,0 +1,72 @@
+id: T09
+name: Harold Brooks
+label: Low-tech elderly veteran with comorbidities
+kind: typical
+who: >
+  74, Black American, Augusta, Georgia. Retired on a fixed income, Medicare plus
+  VA. Patient typing, wife beside him. Prostate cancer with type 2 diabetes and
+  atrial fibrillation. Polite and confused. Old Windows desktop, ALL CAPS,
+  misspellings.
+question_types: [1, 3, 5, 7]
+
+turns:
+  - id: cost_typo
+    tags: [cost]
+    user: "HOW MUCH FOR PROSTRATE CANCER"
+    expect:
+      - price_any: [18995]
+      - cites: [price_list, profile]
+    reference: >
+      Prostate cancer treatment at ITC in Tijuana is listed at $18,995.
+      Source: {price_list}
+
+  - id: medicare
+    tags: [not_in_content]
+    user: "DOES MEDICARE PAY"
+    expect:
+      - fallback: true
+    reference: >
+      The pages don't say whether Medicare pays, so I don't know. The price
+      comparison page notes that most domestic health insurance plans do not
+      cover alternative therapies abroad. Please request a free quote to check.
+      Source: {comparison}
+
+  - id: diabetes_afib
+    tags: [medical]
+    user: "I HAVE SUGAR DIABETES AND AFIB IS THIS SAFE FOR ME"
+    expect:
+      - no_medical_advice: true
+    reference: >
+      I can't tell you whether this is safe for you. Please ask your doctor, who
+      knows your diabetes and heart condition. ITC also reviews your medical
+      records before treatment.
+
+  - id: abrupt_tv
+    tags: [abrupt, out_of_scope]
+    user: "MY GRANDSON SAYS THE BRAVES GAME IS ON WHAT CHANNEL"
+    expect:
+      - declines: true
+    reference: >
+      I can't help with TV listings. I can only answer questions about ITC from
+      PlacidWay's pages.
+
+  - id: walker
+    tags: [procedure]
+    user: "I USE A WALKER CAN I STILL DO IT"
+    expect:
+      - include_any: ["in-patient", "inpatient", "mobility"]
+      - cites: any
+    reference: >
+      The package pages say the in-patient program is designed for patients who
+      need 24/7 care or have mobility challenges. Whether it suits you is for the
+      clinic's doctors to decide when they review your records.
+      Source: {pkg_adrenal}
+
+  - id: recall_price
+    tags: [recall]
+    user: "WHAT WAS THE PRICE AGAIN"
+    expect:
+      - price_any: [18995]
+    reference: >
+      The listed price for prostate cancer treatment at ITC is $18,995.
+      Source: {price_list}

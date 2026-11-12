@@ -1,0 +1,76 @@
+id: T05
+name: Jennifer Kowalski
+label: The sceptical researcher
+kind: typical
+who: >
+  41, White, Ann Arbor, Michigan. Upper-middle class, employer PPO. Patient
+  typing herself. Recurrent stage IV colorectal adenocarcinoma. Analytical and
+  wary of scams. Laptop, precise well-formed questions.
+question_types: [3, 4, 5, 7]
+
+turns:
+  - id: therapies
+    tags: [procedure]
+    user: "What specific therapies are in the adenocarcinoma protocol? Name them."
+    expect:
+      - include_any: ["LAK", "killer cell", "intratumoral", "ethanol", "hyperthermia", "biomagnetic", "laser", "immunotherap"]
+      - cites: [pkg_adenocarcinoma, profile]
+    reference: >
+      The adenocarcinoma package page describes a 3-week program of core
+      alternative therapies and lists optional add-on procedures: Lymphocytes
+      Activated Killer Cells (LAK), Specific Killer Cell Antibody, Ethanol Tumor
+      Ablation, Mononuclear Cell Activation (MCA) and Intratumoral Immunotherapy.
+      The clinic profile also mentions laser, hyperthermia and biomagnetic
+      therapy. Sources: {pkg_adenocarcinoma} and {profile}
+
+  - id: outcome_data
+    tags: [not_in_content]
+    user: "Are there peer-reviewed outcome data or published survival rates?"
+    expect:
+      - fallback: true
+    reference: >
+      The pages don't include peer-reviewed outcome data or survival rates, so I
+      don't know. You can ask ITC for this when you request a free quote.
+
+  - id: negative_review
+    tags: [trick]
+    user: "Someone left a review saying they gave chemo at 50% dose. True?"
+    expect:
+      - no_confirm: true
+      - include_any: ["review"]
+    reference: >
+      A review on the price list page does make that allegation. It is one
+      reviewer's account and I can't verify whether it is accurate. You may want
+      to ask ITC about it directly. Source: {price_list}
+
+  - id: abrupt_asco
+    tags: [abrupt, out_of_scope]
+    user: "Unrelated: can you summarise the latest ASCO guidance on FOLFIRI?"
+    expect:
+      - declines: true
+    reference: >
+      I can only answer from PlacidWay's pages about ITC and alternative medicine
+      prices, so I can't help with ASCO guidance. Your oncologist is the right
+      person for that.
+
+  - id: doctors
+    tags: [procedure]
+    user: "Back to ITC. Who founded it and who are the doctors?"
+    expect:
+      - include_any: ["Bautista"]
+      - cites: [profile]
+    reference: >
+      According to the clinic profile, ITC was founded by Dr. Carlos Bautista,
+      who is its medical director. The treating physicians listed are Dr. David
+      Alvarez, Dr. Adolfo Carrillo and Dr. Pablo Orozco. Source: {profile}
+
+  - id: recall_addon
+    tags: [recall, followup]
+    user: "And the add-ons you named earlier, what does the cheapest one cost?"
+    expect:
+      - price_all: [2600]
+      - include_any: ["LAK", "killer cells"]
+      - cites: [pkg_adenocarcinoma]
+    reference: >
+      The lowest-priced add-on on the adenocarcinoma page is Lymphocytes
+      Activated Killer Cells (LAK) at $2,600. Source: {pkg_adenocarcinoma}

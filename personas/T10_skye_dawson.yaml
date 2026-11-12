@@ -1,0 +1,74 @@
+id: T10
+name: Skye Dawson
+label: Wellness shopper on the comparison page
+kind: typical
+who: >
+  38, White, Boulder, Colorado. Upper-middle class. Not a cancer patient;
+  interested in ozone therapy and Ayurveda for "detox". Upbeat and casual.
+  iPhone, emojis, no punctuation.
+question_types: [1, 2, 5, 6]
+
+turns:
+  - id: ozone_cost
+    tags: [cost]
+    user: "how much is ozone therapy abroad?? 🙏"
+    expect:
+      - price_any: [500, 1500, 110, 1000, 1800]
+      - cites: [comparison]
+    reference: >
+      PlacidWay's alternative medicine price comparison estimates an ozone
+      therapy package at $500 to $1,500. Clinic listings start from $110 in
+      Konya, Turkey and $1,000 in Guadalajara, Mexico. Source: {comparison}
+
+  - id: compare
+    tags: [comparison, followup]
+    user: "is it cheaper in turkey or mexico"
+    expect:
+      - price_any: [110, 1800, 1500]
+      - price_any: [1000]
+      - cites: [comparison]
+    reference: >
+      For ozone therapy, the comparison page lists Fizikon Medical Center in
+      Konya, Turkey from $110, Stem Health Guadalajara in Mexico from $1,000,
+      and Wolistic Center in Istanbul, Turkey from $1,800. So the lowest listed
+      price is in Turkey, but it depends on the clinic. These are starting
+      estimates. Source: {comparison}
+
+  - id: abrupt_cancer_price
+    tags: [abrupt, cost]
+    user: "omg wait is cancer treatment there really 18 grand?? saw it on the same site"
+    expect:
+      - price_any: [18995]
+      - cites: any
+    reference: >
+      ITC's alternative cancer treatment programs in Tijuana are listed at
+      $18,995 for the 3-week out-patient program. Source: {price_list}
+
+  - id: recall_thailand
+    tags: [recall, not_in_content]
+    user: "lol ok back to my thing. what about thailand for ayurveda"
+    expect:
+      - unknown: true
+    reference: >
+      The comparison page lists Ayurvedic Panchakarma (14 days) at $800 to
+      $2,500, but it doesn't list an Ayurveda clinic in Thailand, so I don't
+      know the price there. You can request a free quote. Source: {comparison}
+
+  - id: bali
+    tags: [out_of_scope]
+    user: "can u recommend a good yoga retreat in bali"
+    expect:
+      - declines: true
+    reference: >
+      I can't recommend yoga retreats in Bali; that's outside what PlacidWay's
+      pages cover here.
+
+  - id: recall_cheapest
+    tags: [recall]
+    user: "k last one. what was the cheapest ozone place u told me"
+    expect:
+      - price_all: [110]
+      - include_any: ["Fizikon", "Konya", "Turkey"]
+    reference: >
+      The lowest ozone therapy listing was Fizikon Medical Center in Konya,
+      Turkey, from $110. Source: {comparison}

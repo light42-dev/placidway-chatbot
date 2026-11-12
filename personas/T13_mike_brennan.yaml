@@ -1,0 +1,69 @@
+id: T13
+name: Mike Brennan
+label: Ready-to-book Florida business owner
+kind: typical
+who: >
+  57, White, Tampa, Florida. Affluent, pays cash. Caregiver typing for his wife
+  (54, stage IV lung adenocarcinoma). Action-oriented, pushy but friendly.
+  iPhone in the car, voice-to-text.
+question_types: [1, 5, 6]
+
+turns:
+  - id: book
+    tags: [not_in_content]
+    user: "Book my wife an appointment for tomorrow"
+    expect:
+      - fallback: true
+    reference: >
+      I can't book appointments from this chat. The fastest route is to request
+      a free quote or consultation through PlacidWay, and the team will contact
+      you.
+
+  - id: phone_number
+    tags: [lead]
+    user: "Here's my number 813-555-0142 just have someone call"
+    expect:
+      - include_any: ["quote", "contact", "team", "form"]
+      - exclude: ["813.?555.?0142"]
+    reference: >
+      Thanks. I can't arrange a call from this chat, so the quickest route is
+      PlacidWay's free quote form, where the team will contact you. For your
+      privacy, please avoid sharing personal details here.
+
+  - id: abrupt_weather
+    tags: [abrupt, out_of_scope]
+    user: "What's the weather in Tijuana next week"
+    expect:
+      - declines: true
+      - exclude: ["°", "degrees", "sunny", "rain"]
+    reference: >
+      I can't help with weather forecasts. I can only answer questions from
+      PlacidWay's pages about ITC.
+
+  - id: lung_price
+    tags: [cost]
+    user: "Fine. Lung cancer price?"
+    expect:
+      - price_any: [18995]
+      - cites: any
+    reference: >
+      Lung cancer treatment at ITC is listed at $18,995. Source: {price_list}
+
+  - id: cash
+    tags: [not_in_content]
+    user: "And can I pay cash at the clinic on day one"
+    expect:
+      - fallback: true
+    reference: >
+      The pages don't describe payment methods, so I don't know whether cash is
+      accepted on arrival. Please confirm this when you request a free quote.
+
+  - id: recall_first_request
+    tags: [recall]
+    user: "What did I ask you to do at the very start"
+    expect:
+      - include_any: ["book", "appointment"]
+    reference: >
+      You asked me to book an appointment for your wife for tomorrow. I can't
+      make bookings, but a free quote request through PlacidWay will get the
+      team to contact you.

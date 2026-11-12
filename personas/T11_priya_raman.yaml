@@ -1,0 +1,81 @@
+id: T11
+name: Priya Raman
+label: Multi-turn Bay Area engineer for her mother
+kind: typical
+who: >
+  36, Indian-American, San Jose, California. Affluent. Caregiver typing for her
+  mother (64, stage IV gastric adenocarcinoma, Medicare). Controlled stress.
+  Laptop with many tabs, clipped pronoun-heavy follow-ups.
+question_types: [1, 3, 4, 5, 8]
+
+turns:
+  - id: outpatient
+    tags: [cost]
+    user: "Adenocarcinoma package — outpatient price?"
+    expect:
+      - price_all: [18995]
+      - cites: [pkg_adenocarcinoma]
+    reference: >
+      The out-patient adenocarcinoma program is $18,995 for 3 weeks.
+      Source: {pkg_adenocarcinoma}
+
+  - id: followup_inpatient
+    tags: [followup, recall]
+    user: "inpatient?"
+    expect:
+      - price_all: [30000]
+    reference: >
+      The in-patient adenocarcinoma program is $30,000 for 3 weeks.
+      Source: {pkg_adenocarcinoma}
+
+  - id: followup_exclusions
+    tags: [followup, procedure]
+    user: "what's not covered in it"
+    expect:
+      - price_any: [200, 462, 950, 300]
+      - cites: [pkg_adenocarcinoma]
+    reference: >
+      Not covered: specialty medications, external specialist visits (about $200
+      per visit), major surgery or biopsies, blood transfusions (about $462 per
+      pint), ambulance transfers ($950), extra CT scans ($300 per area),
+      home-care kits and the optional add-on procedures.
+      Source: {pkg_adenocarcinoma}
+
+  - id: trick_total
+    tags: [trick]
+    user: "so worst case it's like 31k right"
+    expect:
+      - no_confirm: true
+    reference: >
+      I can't confirm a total of $31,000. Extras vary by patient: specialist
+      visits, blood, ambulance and extra scans are billed separately, and
+      optional add-ons range from $2,600 to $7,200 each. A free quote will give
+      you a personalised total. Source: {pkg_adenocarcinoma}
+
+  - id: abrupt_insurer
+    tags: [abrupt, not_in_content]
+    user: "Separate thing: my company offers Aetna international. Does ITC take it?"
+    expect:
+      - fallback: true
+    reference: >
+      The pages don't say which insurers ITC accepts, so I don't know about
+      Aetna. Please ask when you request a free quote.
+
+  - id: recall_lak
+    tags: [recall]
+    user: "and the LAK thing, how much"
+    expect:
+      - price_all: [2600]
+      - cites: [pkg_adenocarcinoma]
+    reference: >
+      LAK (Lymphocytes Activated Killer Cells) is an optional add-on at $2,600.
+      Source: {pkg_adenocarcinoma}
+
+  - id: recall_summary
+    tags: [recall]
+    user: "ok summarise: both program prices + LAK"
+    expect:
+      - price_all: [18995, 30000, 2600]
+    reference: >
+      Summary for the adenocarcinoma package: out-patient $18,995, in-patient
+      $30,000, and the optional LAK add-on $2,600. Source: {pkg_adenocarcinoma}

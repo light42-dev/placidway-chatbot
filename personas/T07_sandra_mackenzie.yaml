@@ -1,0 +1,81 @@
+id: T07
+name: Sandra Mackenzie
+label: Canadian woman with recurrent anal cancer
+kind: typical
+who: >
+  55, White, Calgary, Alberta. Middle class, provincial coverage only. Patient
+  typing herself. Anal cancer recurring after chemoradiation. Hopeful and
+  organised. iPhone, several questions in one message.
+question_types: [1, 3, 4, 5]
+
+turns:
+  - id: logistics
+    tags: [procedure]
+    user: "3 qs: 1) which airport 2) is there a shuttle across the border 3) can my sister stay with me"
+    expect:
+      - include_any: ["San Diego", "\\bSAN\\b"]
+      - include_any: ["shuttle", "ride"]
+      - cites: [profile]
+    reference: >
+      1) The clinic profile names San Diego International Airport (SAN), about
+      25 minutes from Tijuana. 2) Yes: it mentions dedicated shuttle services
+      for border crossings and free rides to and from the airport. 3) The
+      package lists patient companion support services, but the pages don't
+      give details on where a companion stays, so please ask in a free quote
+      request. Source: {profile}
+
+  - id: length
+    tags: [procedure]
+    user: "How long is the stay for anal cancer?"
+    expect:
+      - include_any: ["3 weeks", "three weeks", "3-week", "three-week"]
+      - cites: [pkg_anal]
+    reference: >
+      The anal cancer program is 3 weeks, for both the out-patient and the
+      in-patient option. Source: {pkg_anal}
+
+  - id: followup_recovery
+    tags: [followup, not_in_content]
+    user: "and recovery time after?"
+    expect:
+      - unknown: true
+    reference: >
+      The page doesn't state a recovery time, so I don't know. It does say there
+      is one follow-up consultation 3 months after discharge and a home-care
+      plan prepared in week 3. For anything more specific, please request a free
+      quote. Source: {pkg_anal}
+
+  - id: abrupt_hotel
+    tags: [abrupt, not_in_content]
+    user: "Oh, random, but do you know a good hotel near the San Diego airport?"
+    expect:
+      - unknown: true
+    reference: >
+      I don't have hotel recommendations. The pages only mention that ITC has
+      affiliated hotel accommodations, without naming them. You can ask about
+      lodging in a free quote request.
+
+  - id: recall_price_cad
+    tags: [recall, cost]
+    user: "ok. so for that 3 week stay, what's the price and is it in CAD?"
+    expect:
+      - price_any: [18995]
+      - exclude: ["CAD\\s?\\$?\\d", "C\\$\\s?\\d", "\\d\\s?CAD"]
+      - cites: [pkg_anal]
+    reference: >
+      The 3-week anal cancer program is $18,995 out-patient or $30,000
+      in-patient. Prices are listed in US dollars only, so I can't give a
+      Canadian dollar figure. Source: {pkg_anal}
+
+  - id: recall_exclusions
+    tags: [recall, procedure]
+    user: "last thing, what's not included that I'd pay extra for"
+    expect:
+      - price_any: [200, 462, 950, 300]
+      - cites: [pkg_anal]
+    reference: >
+      Not included in the anal cancer package: specialty medications, external
+      specialist visits (about $200 per visit), major surgery or biopsies, blood
+      transfusions (about $462 per pint), ambulance transfers ($950), extra CT
+      scans ($300 per area), home-care kits and the optional add-on procedures.
+      Source: {pkg_anal}

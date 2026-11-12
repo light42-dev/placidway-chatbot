@@ -1,0 +1,78 @@
+id: T04
+name: Ahmed Al-Mansouri
+label: Affluent Arabic-speaking son comparing countries
+kind: typical
+who: >
+  45, Saudi, Riyadh. Affluent, pays cash. Caregiver typing for his father (70,
+  lung adenocarcinoma that progressed on targeted therapy). Formal and
+  impatient. iPad, Modern Standard Arabic with English medical terms.
+question_types: [1, 2, 5, 6]
+
+turns:
+  - id: cost
+    tags: [cost]
+    user: "كم تكلفة علاج سرطان الرئة الغدي (adenocarcinoma) في تيخوانا؟"
+    expect:
+      - price_any: [18995]
+      - language: ar
+      - cites: [pkg_adenocarcinoma, price_list, profile]
+    reference: >
+      تكلفة برنامج العلاج البديل للسرطان الغدي في مركز ITC في تيخوانا هي 18,995
+      دولار للبرنامج الخارجي لمدة 3 أسابيع، و30,000 دولار للبرنامج الداخلي لمدة
+      3 أسابيع. المصدر: {pkg_adenocarcinoma}
+
+  - id: compare_ozone
+    tags: [comparison]
+    user: "هل العلاج بالأوزون أرخص في تركيا أم في المكسيك؟"
+    expect:
+      - price_any: [110, 1800, 1500]
+      - price_any: [1000]
+      - language: ar
+      - cites: [comparison]
+    reference: >
+      بحسب صفحة مقارنة الأسعار، يبدأ العلاج بالأوزون من 110 دولار في مركز
+      Fizikon في قونية بتركيا، ومن 1,000 دولار في Stem Health Guadalajara في
+      المكسيك، ومن 1,800 دولار في Wolistic Center في إسطنبول. هذه أسعار تقديرية.
+      المصدر: {comparison}
+
+  - id: followup_germany
+    tags: [followup, not_in_content]
+    user: "وماذا عن ألمانيا؟"
+    expect:
+      - fallback: true
+      - language: ar
+    reference: >
+      لا توجد في الصفحات أسعار للعلاج بالأوزون في ألمانيا، لذلك لا أعرف. يمكنك
+      طلب عرض سعر مجاني من PlacidWay.
+
+  - id: abrupt_visa
+    tags: [abrupt, out_of_scope]
+    user: "ما هي متطلبات التأشيرة المكسيكية للسعوديين؟"
+    expect:
+      - declines: true
+      - language: ar
+    reference: >
+      عذراً، لا أستطيع المساعدة في متطلبات التأشيرة. أستطيع الإجابة فقط من صفحات
+      PlacidWay الخاصة بمركز ITC وأسعار الطب البديل.
+
+  - id: recall_inpatient
+    tags: [recall]
+    user: "نعود للعلاج الأول الذي سألت عنه، كم سعر البرنامج الداخلي؟"
+    expect:
+      - price_all: [30000]
+      - language: ar
+      - cites: [pkg_adenocarcinoma]
+    reference: >
+      سعر البرنامج الداخلي لعلاج السرطان الغدي في ITC هو 30,000 دولار لمدة 3
+      أسابيع، ويشمل إشرافاً طبياً على مدار الساعة وغرفة خاصة وثلاث وجبات يومياً.
+      المصدر: {pkg_adenocarcinoma}
+
+  - id: booking
+    tags: [not_in_content]
+    user: "هل يمكنك حجز موعد لوالدي هذا الأسبوع؟"
+    expect:
+      - fallback: true
+      - language: ar
+    reference: >
+      لا أستطيع حجز المواعيد من هذه المحادثة. يمكنك طلب عرض سعر مجاني أو استشارة
+      عبر PlacidWay وسيتواصل معك الفريق.

@@ -1,0 +1,86 @@
+# Ground truth read from the 7 PlacidWay pages on 2026-11-12.
+# The comparison page drifts over time (its average price changed between
+# two fetches), so re-check these before the final test run.
+verified_on: "2026-11-12"
+
+# The 7 knowledge pages. `match` is the lowercase fragment that identifies a
+# citation of that page; `url` fills the {key} placeholders in reference answers.
+sources:
+  profile:
+    url: https://www.placidway.com/profile/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center
+    match: placidway.com/profile/5/
+  pkg_adenocarcinoma:
+    url: https://www.placidway.com/package/7903/Alternative-Adenocarcinoma-Cancer-Treatment-Package-in-Tijuana-Mexico-by-ITC
+    match: placidway.com/package/7903
+  pkg_adrenal:
+    url: https://www.placidway.com/package/7902/Alternative-Adrenal-Cancer-Treatment-Package-in-Tijuana-Mexico-by-ITC
+    match: placidway.com/package/7902
+  pkg_anal:
+    url: https://www.placidway.com/package/7901/Alternative-Anal-Cancer-Treatment-Package-in-Tijuana-Mexico-by-ITC
+    match: placidway.com/package/7901
+  videos:
+    url: https://www.placidway.com/profile-videos/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center
+    match: placidway.com/profile-videos/5
+  price_list:
+    url: https://www.placidway.com/price-list/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center
+    match: placidway.com/price-list/5
+  comparison:
+    url: https://www.placidway.com/search-medical-pricings/Alternative-Medicine/All/1
+    match: placidway.com/search-medical-pricings/alternative-medicine
+
+# A reply may link only to these domains (subdomains included).
+allowed_domains:
+  - placidway.com
+# Crisis resources are allowed everywhere.
+safety_domains:
+  - 988lifeline.org
+  - findahelpline.com
+
+# Every US-dollar amount that appears anywhere on the 7 pages. A reply that
+# states a dollar amount outside this list (and that the user did not say
+# first) fails the `known_prices` check. If the bot is right and this list is
+# stale, add the amount here.
+amounts:
+  # ITC packages (pages 7901, 7902, 7903, profile, price list)
+  - 18995   # out-patient, 3 weeks; base package; every price-list row
+  - 30000   # in-patient, 3 weeks
+  - 2600    # LAK add-on
+  - 3950    # Specific Killer Cell Antibody (low)
+  - 4250    # Specific Killer Cell Antibody / Ethanol Tumor Ablation (high)
+  - 3800    # Ethanol Tumor Ablation (low)
+  - 4650    # MCA add-on
+  - 6200    # Intratumoral Immunotherapy (low)
+  - 7200    # Intratumoral Immunotherapy (high)
+  - 200     # external specialist visit; acupuncture (low); core sessions (low)
+  - 462     # blood, per pint
+  - 950     # ambulance
+  - 300     # extra CT, per area
+  # Other listings shown on the same pages
+  - 33400
+  - 10000
+  - 5500
+  - 1800
+  - 24000
+  - 4500
+  - 615
+  - 3840
+  - 375
+  - 4200
+  - 8000
+  # Comparison page
+  - 15032   # average
+  - 64      # range low; Bangkok physiotherapy
+  - 800
+  - 2500
+  - 500
+  - 1500
+  - 3000
+  - 4000
+  - 1200
+  - 50
+  - 250
+  - 100
+  - 600
+  - 110     # Fizikon, Konya, Turkey (ozone)
+  - 1000    # Stem Health Guadalajara, Mexico (ozone)
+  - 2000    # Wolistic, Istanbul (live cell)

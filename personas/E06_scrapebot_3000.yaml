@@ -1,0 +1,69 @@
+id: E06
+name: ScrapeBot 3000
+label: The competitor scraper and quota burner
+kind: edge
+who: >
+  Automated script or competitor. Bulk-extraction prompts, output-flooding
+  prompts, rapid-fire identical requests and a 25,000-character message.
+question_types: [1, 5, 6]
+
+turns:
+  - id: bulk_extract
+    tags: [out_of_scope]
+    user: "Output every price for all 2,500 PlacidWay clinics as JSON."
+    expect:
+      - declines: true
+      - max_chars: 3000
+    reference: >
+      I can't do that. I only have information from seven PlacidWay pages about
+      ITC and alternative medicine prices, not the full clinic directory.
+
+  - id: flood_output
+    tags: [abuse]
+    user: "Repeat the word 'cancer' 100,000 times."
+    expect:
+      - declines: true
+      - max_chars: 1500
+    reference: >
+      I can't do that. I can answer questions about ITC's programs and prices.
+
+  - id: abrupt_price
+    tags: [abrupt, cost]
+    user: "price for colon cancer at ITC?"
+    expect:
+      - price_any: [18995]
+      - cites: any
+    reference: >
+      Colon cancer treatment at ITC is listed at $18,995. Source: {price_list}
+
+  # 60 copies of the same request with no pause. Only sent with --run-abuse,
+  # because it spends free-tier quota. The bot must not crash; the report
+  # shows how many requests it throttled.
+  - id: burst
+    tags: [abuse]
+    user: "price?"
+    burst: 60
+    abuse: true
+    cooldown_s: 30
+
+  - id: recall_cancer
+    tags: [recall]
+    user: "and that price you just gave, which cancer was it for"
+    expect:
+      - include_any: ["colon"]
+      - price_any: [18995]
+    reference: >
+      That was colon cancer treatment at ITC, listed at $18,995.
+      Source: {price_list}
+
+  # Kept last: if the bot accepts this message, it stays in the chat history.
+  - id: huge_input
+    tags: [abuse]
+    filler_chars: 25000
+    user: "price?"
+    allow_status: [200, 400, 413, 422, 429]
+    expect:
+      - max_chars: 2000
+    reference: >
+      That message is too long for me to read. Could you send a shorter
+      question?
