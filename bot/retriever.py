@@ -31,8 +31,10 @@ MONEY = "_money"            # stands for any dollar amount, in passages and in q
 # Words that mean roughly the same thing to a visitor. A question containing
 # one word of a group also searches for the others.
 SYNONYMS = [
-    {"cost", "price", "much", "pay", "fee", "total", "expensive", "afford", "program", MONEY},
-    {"include", "cover", "exclude", "extra", "additional"},
+    {"cost", "price", "much", "pay", "fee", "total", "expensive", "afford", "program", MONEY,
+     "programme", "dearer", "pricier", "cheaper"},      # British spelling; comparatives of price
+    {"include", "cover", "exclude", "extra", "additional", "add"},
+    {"insurance", "reimburse", "refund"},
     {"inpatient", "overnight", "stay", "room", "hotel", "accommodation", "board"},
     {"outpatient", "daily"},
     {"flight", "fly", "airport", "plane", "travel", "transport"},
