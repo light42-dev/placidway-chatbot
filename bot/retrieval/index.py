@@ -8,7 +8,8 @@ Additions that make real questions work:
   so related words are grouped (SYNONYMS) and money amounts become one token;
 - earlier user messages also count as query words, at a lower weight, so
   "and the inpatient one?" still finds the package that was being discussed;
-- passages from the page under discussion (the focus page, see focus.py) get a bonus;
+- passages from the page under discussion (the focus page, see focus.py) get a bonus,
+  and so do passages that state a price when the newest message asks about cost;
 - Spanish and Arabic words are mapped to English, and near-miss spellings are corrected.
 """
 from __future__ import annotations
@@ -29,6 +30,7 @@ K1, B = 1.5, 0.75           # the usual BM25 constants
 EARLIER_WEIGHT = 0.4        # weight of the previous user message; halves for each one before it
 SYNONYM_WEIGHT = 0.6        # weight of a word added through SYNONYMS, relative to the word that triggered it
 FOCUS_BONUS = 3.0           # multiplier for passages of the page under discussion
+PRICE_BONUS = 1.5           # multiplier for passages that state a price, when the newest message asks about cost
 MONEY = "_money"            # stands for any dollar amount, in passages and in questions
 
 # Words that mean roughly the same thing to a visitor. A question containing
@@ -135,11 +137,14 @@ class Index:
                     query[term] = max(query.get(term, 0.0), weight * synonym_weight)
             weight = EARLIER_WEIGHT if weight == 1.0 else weight / 2
 
+        asks_about_cost = query.get(MONEY, 0.0) >= SYNONYM_WEIGHT       # a cost word in the newest message
         scored = []
         for i, passage in enumerate(self.passages):
             score = self.score(i, query)
             if focus_page and passage.page == focus_page:
                 score *= FOCUS_BONUS
+            if asks_about_cost and MONEY in self.term_counts[i]:
+                score *= PRICE_BONUS    # a price table answers a price question better than prose about costs
             if score > 0:
                 scored.append((score, i))
         scored.sort(key=lambda item: (-item[0], item[1]))

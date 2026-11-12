@@ -93,10 +93,12 @@ What changed in behaviour, on purpose:
   more) found in no retrieved passage and nowhere in the conversation. On 243
   recorded live replies it would have removed nothing. It makes no second model
   call, because that would double the tokens a reply costs.
-- With this check the offline replay fails one turn, T10 `compare`. The
-  reference reply names three clinic prices, but the passage that lists them is
-  not retrieved for "is it cheaper in turkey or mexico", so a real model could
-  not have given them either. This is a retrieval gap, not yet fixed.
+- That check exposed a retrieval gap in T10 `compare` ("is it cheaper in turkey
+  or mexico"): two long FAQ passages about costs outranked the table of clinic
+  prices, which then did not fit. Passages that state a price now get a bonus
+  when the newest message asks about cost (`PRICE_BONUS` in
+  `bot/retrieval/index.py`). The offline replay passes all 20 personas again,
+  and one other missed page (E04) is now retrieved too. Not run live.
 
 ## Still open
 
