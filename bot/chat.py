@@ -8,6 +8,7 @@ from .llm import complete
 from .pages import PAGE_BY_KEY, PAGES
 from .retriever import Passage, find_focus_page, load_index
 from .safety import CRISIS_PROMPT, is_crisis, make_crisis_reply_safe
+from .videos import asked_conditions, video_passage
 
 RULES = """You are the PlacidWay assistant for ITC (Immunity Therapy Center), an alternative cancer treatment clinic in Tijuana, Mexico. You answer website visitors using ONLY the numbered passages below, which come from PlacidWay's pages.
 
@@ -15,7 +16,7 @@ Rules:
 - Use only the passages. Never invent or estimate a price, an inclusion, an outcome or any other detail.
 - Never write URLs or a "Source:" line; links are added for you. Instead, end every reply with one last line in exactly this form: "USED: 1, 3", listing the numbers of the passages your facts came from, or "USED: none" if you stated no fact from the passages.
 - Prices are in US dollars. Give them with the context the page gives (program type, duration, what is included); list optional add-on prices only if asked. Never convert currencies or add prices into new totals. If the user mentions their budget, just give the listed prices, with no remark on it.
-- If the passages do not contain the answer, say plainly that you don't know because PlacidWay's pages don't list it, and suggest requesting a free quote from PlacidWay. If only part of a question is covered, answer that part and say which part is not listed.
+- If the passages do not contain the answer, or say it is not listed, say plainly "I don't have that information" because PlacidWay's pages don't list it, and suggest requesting a free quote from PlacidWay. If only part of a question is covered, answer that part and say which part is not listed.
 - If the user suggests a price or claim that the passages do not state, say you can't confirm it, then give the listed figures.
 - Questions unrelated to these pages (for example crime, weather, news): say you can only answer from PlacidWay's pages about ITC and that they don't cover it.
 - Give no medical advice. Never say a treatment will work or is safe for someone, and never say what you would do or choose for them; that decision is theirs, with their doctor. Recommend speaking to a doctor. Never promise results.
@@ -75,11 +76,19 @@ def _earlier_prices(dropped: list[dict]) -> list[str]:
     return sentences[-MAX_EARLIER_PRICES:]
 
 
+def _earlier_on_topic(dropped: list[dict], question: str) -> list[str]:
+    """Trimmed bot replies about a condition the newest question names ("the breast cancer videos")."""
+    conditions = asked_conditions(question)
+    replies = [SOURCE_LINE.sub("", m["content"]).strip() for m in dropped if m["role"] == "assistant"]
+    on_topic = [r for r in replies if conditions and set(asked_conditions(r)) & set(conditions)]
+    return [r[:config.MAX_HISTORY_CHARS] for r in on_topic[-2:]]
+
+
 def _system_prompt(passages: list[Passage], earlier: list[str]) -> str:
     blocks = [f"[{n}] From: {PAGE_BY_KEY[p.page].title}\n{p.text}" for n, p in enumerate(passages, start=1)]
     prompt = RULES + "\n\nPASSAGES:\n\n" + ("\n\n".join(blocks) if blocks else "(no passage matched this question)")
     if earlier:
-        prompt += ("\n\nPRICES YOU GAVE EARLIER IN THIS CONVERSATION (older messages not shown):\n"
+        prompt += ("\n\nWHAT YOU SAID EARLIER IN THIS CONVERSATION (older messages not shown):\n"
                    + "\n".join(f"- {sentence}" for sentence in earlier))
     return prompt
 
@@ -137,9 +146,14 @@ def answer(messages: list[dict]) -> dict:
         return _crisis_answer(conversation)
     user_messages = [str(m.get("content", "")) for m in conversation if m["role"] == "user"]
     focus = find_focus_page(user_messages, _last_cited_page(conversation))
-    passages = load_index().search(user_messages, focus_page=focus)
+    videos = video_passage(user_messages[-1])     # "a video about X?" checked against every title
+    budget = config.CONTEXT_CHARS - (len(videos.text) if videos else 0)
+    passages = ([videos] if videos else []) + load_index().search(user_messages, focus, budget)
     history = _clean_history(conversation)
     dropped = conversation[:len(conversation) - len(history)]
-    completion = complete(_system_prompt(passages, _earlier_prices(dropped)), history)
+    earlier = _earlier_prices(dropped) + _earlier_on_topic(dropped, user_messages[-1])
+    completion = complete(_system_prompt(passages, earlier), history)
     text, sources = _cite(completion.text, passages)
+    if videos and not sources:      # a video question is answered from the videos page
+        text, sources = _cite(text + "\nUSED: 1", passages)
     return _reply(text, sources, completion)

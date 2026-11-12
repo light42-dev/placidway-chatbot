@@ -27,7 +27,7 @@ PAGES = [
          f"{BASE}/package/7901/Alternative-Anal-Cancer-Treatment-Package-in-Tijuana-Mexico-by-ITC",
          "Alternative Anal Cancer Treatment package", ("anal",)),
     Page("videos", f"{BASE}/profile-videos/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center",
-         "ITC videos and testimonials", ("video", "testimonial", "watch")),
+         "ITC videos and testimonials", ("vid[eé]o", "testimonial", "t[eé]moign", "watch")),
     Page("price_list", f"{BASE}/price-list/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center",
          "ITC price list", ("price list", "pricelist", "procedures")),
     Page("comparison", f"{BASE}/search-medical-pricings/Alternative-Medicine/All/1",
