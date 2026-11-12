@@ -21,6 +21,7 @@ from functools import lru_cache
 
 from .config import CONTEXT_CHARS, ROOT
 from .pages import PAGES
+from .translate import to_english
 
 K1, B = 1.5, 0.75           # the usual BM25 constants
 EARLIER_WEIGHT = 0.4        # weight of the previous user message; halves for each one before it
@@ -65,7 +66,7 @@ def stem(word: str) -> str:
 
 def tokenize(text: str) -> list[str]:
     """Lowercase stemmed words without stopwords; hyphens are dropped ('in-patient' -> 'inpatient')."""
-    text = text.lower().replace("-", "")
+    text = to_english(text).replace("-", "")    # also lowercases; Spanish words become English
     tokens = [stem(word) for word in re.findall(r"[a-z0-9]+", text) if word not in STOPWORDS]
     if re.search(r"\$\s?\d|\d\s?k\b|\busd\b|\bdollar", text):
         tokens.append(MONEY)
@@ -88,7 +89,7 @@ def expand(terms: set[str]) -> dict[str, float]:
 def find_focus_page(user_messages: list[str], last_cited: str | None) -> str | None:
     """The page the conversation is about: the newest topic word a user wrote, else the page cited last."""
     for message in reversed(user_messages):
-        lowered = message.lower()
+        lowered = to_english(message)
         for page in PAGES:
             if any(re.search(rf"\b{topic}", lowered) for topic in page.topics):
                 return page.key

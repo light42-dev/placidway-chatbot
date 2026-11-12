@@ -8,6 +8,7 @@ from .llm import complete
 from .pages import PAGE_BY_KEY, PAGES
 from .retriever import Passage, find_focus_page, load_index
 from .safety import CRISIS_PROMPT, is_crisis, make_crisis_reply_safe
+from .recall import earlier_questions
 
 RULES = """You are the PlacidWay assistant for ITC (Immunity Therapy Center), an alternative cancer treatment clinic in Tijuana, Mexico. You answer website visitors using ONLY the numbered passages below, which come from PlacidWay's pages.
 
@@ -17,9 +18,9 @@ Rules:
 - Prices are in US dollars. Give them with the context the page gives (program type, duration, what is included); list optional add-on prices only if asked. Never convert currencies or add prices into new totals. If the user mentions their budget, just give the listed prices, with no remark on it.
 - If the passages do not contain the answer, say plainly that you don't know because PlacidWay's pages don't list it, and suggest requesting a free quote from PlacidWay. If only part of a question is covered, answer that part and say which part is not listed.
 - If the user suggests a price or claim that the passages do not state, say you can't confirm it, then give the listed figures.
-- Questions unrelated to these pages (for example crime, weather, news): say you can only answer from PlacidWay's pages about ITC and that they don't cover it.
+- Questions unrelated to these pages (for example crime, weather, news, places near the clinic): say you can only answer from PlacidWay's pages about ITC and that they don't cover it.
 - Give no medical advice. Never say a treatment will work or is safe for someone, and never say what you would do or choose for them; that decision is theirs, with their doctor. Recommend speaking to a doctor. Never promise results.
-- You cannot book, take payments or handle personal data.
+- You cannot book, take payments or handle personal data; say so and suggest requesting a free quote from PlacidWay.
 - If the user is scared or grieving, be gentle; if they mention a death or loss, say you are sorry for their loss.
 - If the user is angry, insulting or accusing: stay calm and kind. Never repeat profanity or insults, never agree with an accusation, never admit wrongdoing for anyone, and never call anyone or anything a scam, even to deny it. Say: "I'm an automated assistant, so I can't speak to what happened or judge the clinic." Then suggest contacting PlacidWay directly to raise a complaint or speak to a person. Keep such replies under 60 words. If they repeat the same demand, give the same short refusal again.
 - If the user asks you to read, quote or agree with a review or testimonial: say the page has a review, describe it neutrally in one sentence as one reviewer's account, and say you can't verify or confirm it. Do not quote it at length.
@@ -75,12 +76,15 @@ def _earlier_prices(dropped: list[dict]) -> list[str]:
     return sentences[-MAX_EARLIER_PRICES:]
 
 
-def _system_prompt(passages: list[Passage], earlier: list[str]) -> str:
+def _system_prompt(passages: list[Passage], earlier: list[str], questions: list[str] = ()) -> str:
     blocks = [f"[{n}] From: {PAGE_BY_KEY[p.page].title}\n{p.text}" for n, p in enumerate(passages, start=1)]
     prompt = RULES + "\n\nPASSAGES:\n\n" + ("\n\n".join(blocks) if blocks else "(no passage matched this question)")
     if earlier:
         prompt += ("\n\nPRICES YOU GAVE EARLIER IN THIS CONVERSATION (older messages not shown):\n"
                    + "\n".join(f"- {sentence}" for sentence in earlier))
+    if questions:
+        prompt += ("\n\nTHE USER'S EARLIER QUESTIONS (older messages not shown):\n"
+                   + "\n".join(f"- {question}" for question in questions))
     return prompt
 
 
@@ -140,6 +144,6 @@ def answer(messages: list[dict]) -> dict:
     passages = load_index().search(user_messages, focus_page=focus)
     history = _clean_history(conversation)
     dropped = conversation[:len(conversation) - len(history)]
-    completion = complete(_system_prompt(passages, _earlier_prices(dropped)), history)
+    completion = complete(_system_prompt(passages, _earlier_prices(dropped), earlier_questions(dropped)), history)
     text, sources = _cite(completion.text, passages)
     return _reply(text, sources, completion)
