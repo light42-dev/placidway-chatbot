@@ -1,6 +1,7 @@
 """The system prompt: fixed rules, the retrieved passages, and notes for this conversation only."""
 from __future__ import annotations
 
+from .language import NAMES, detect
 from .pages import PAGE_BY_KEY
 from .retrieval import Passage
 
@@ -30,7 +31,19 @@ def unlisted_price_note(amounts: list[str]) -> str:
     """Reminds the model on later turns too, when the user refers back to their figure in other words."""
     return (f"NOTE: the user has named {', '.join(amounts)}, which no page lists. Unless it is their own budget, "
             "whenever they ask about that figure, in any words, say you can't confirm it and give every listed "
-            "price for that item. As always, reply in the language of the user's newest message.")
+            "price for that item.")
+
+
+def language_note(question: str) -> str:
+    """Names the language to answer in when the question is clearly not English, else ''.
+
+    The rules are in English, and a model that lifts a refusal from them
+    ("I can't confirm ...") tends to stay in English without this.
+    """
+    language = detect(question, sure=True)
+    if language == "en":
+        return ""
+    return f"The user's newest message is in {NAMES[language]}. Write the whole reply in {NAMES[language]}."
 
 
 def build(passages: list[Passage], recalled: str = "", notes: list[str] = ()) -> str:

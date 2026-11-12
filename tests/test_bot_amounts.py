@@ -116,3 +116,14 @@ def test_a_figure_the_model_was_not_shown_is_dropped():
     assert drop_unsupported_figures(reply, shown) == "The program is $18,995 for 3 weeks.  Supervision is 24/7."
     assert drop_unsupported_figures("Recovery takes about 14 days.", shown) == NOTHING_LEFT
     assert drop_unsupported_figures("1. Out-patient\n2. In-patient", shown) == "1. Out-patient\n2. In-patient"
+
+
+def test_passage_markers_inside_a_reply_are_removed_and_counted():
+    from bot.citations import split_used_line
+    assert split_used_line("Dos comidas al día【2】. Tres comidas【4†L1-L3】.\nUSED: 2") == ("Dos comidas al día. Tres comidas.", [2, 4])
+
+
+def test_the_reply_language_is_named_only_for_a_clearly_non_english_question():
+    from bot.prompt import language_note
+    assert "Spanish" in language_note("me dijeron que cuesta como 5 mil dolares, es cierto?")
+    assert language_note("no, is it $50?") == ""

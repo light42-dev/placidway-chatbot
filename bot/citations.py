@@ -13,6 +13,8 @@ from .pages import PAGE_BY_KEY
 from .retrieval import Passage
 
 USED_LINE = re.compile(r"\n?\s*USED:\s*([^\n]*)\s*$", re.I)
+# Passage markers some models write inside the text instead: "【2】", "【2†L1-L3】", "[2]".
+MARKER = re.compile(r"\s*(?:【\s*(\d+)[^】]*】|\[(\d+)\])")
 SHARED_WORDS = 4        # this many words in a row, copied from a passage, count as using it
 _WORD = re.compile(r"[a-z0-9$]+")
 _FIGURE = re.compile(r"\d[\d,]*\d|\d")
@@ -23,6 +25,8 @@ def split_used_line(reply: str) -> tuple[str, list[int]]:
     used = USED_LINE.search(reply)
     numbers = [int(n) for n in re.findall(r"\d+", used.group(1))] if used else []
     text = SOURCE_LINE.sub("", USED_LINE.sub("", reply))
+    numbers += [int(a or b) for a, b in MARKER.findall(text) if int(a or b) not in numbers]
+    text = MARKER.sub("", text)
     return PLACIDWAY_URL.sub("", text).strip(), numbers      # drop any URL the model typed itself
 
 

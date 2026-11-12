@@ -93,7 +93,8 @@ def answer(messages: list[dict]) -> dict:
     unlisted = prices.unlisted_amounts(user_messages)
     notes = [prompt.unlisted_price_note(unlisted) if unlisted else "",
              injection.security_note(user_messages),
-             documents.extra_rules(question)]
+             documents.extra_rules(question),
+             prompt.language_note(question)]
     recalled = history.recall(older, question)
     completion = complete(prompt.build(passages, recalled, notes), shown)
 

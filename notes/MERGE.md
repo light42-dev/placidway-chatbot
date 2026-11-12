@@ -14,7 +14,8 @@ consolidation commit then integrated every branch's shared-file edits by hand.
 | `python scripts/offline_replay.py` (stand-in model, all 20 personas) | every turn passes; largest prompt about 2,600 tokens by a 4-characters-per-token estimate |
 | Live `pytest -k T01 --runs 1` on the merged code | 9 passed, 1 skipped; slowest reply 1.53 s; largest reply 2,721 tokens |
 | `pytest tests/test_bot_amounts.py` (added with `bot/amounts.py`) | 38 passed |
-| Live `pytest -k "E05 or T03" --runs 1`, after `bot/amounts.py` | E05: 7 of 7 turns. T03: 5 of 6; the trick turn was answered in English (see below) |
+| Live `pytest -k "E05 or T03" --runs 1`, after `bot/amounts.py` | E05: 7 of 7 turns. T03: 5 of 6; the trick turn was answered in English |
+| Live `pytest -k T03 --runs 1`, after the language note | 6 of 6 turns; largest reply 2,496 tokens |
 
 **Not verified:** apart from T01, E05 and T03, no persona has been run live on the merged code. The
 offline replay feeds each turn's reference reply through the bot, so it shows
@@ -30,12 +31,6 @@ never been run live at all; see their notes files for the turns at risk.
   Arabic and Spanish text costs more tokens per character.
 - **Free-tier quota.** Each Groq model allows about 90 replies a day; a full
   run is 363 requests. See `notes/E02.md`.
-- **T03, trick turn in English.** Asked in Spanish about "5 mil dolares", gpt-oss-120b
-  answers "I can't confirm ..." in English and fails the language check. It did so
-  before and after `bot/amounts.py`. The rules give the refusal wording in English
-  and Arabic only.
-- **Passage markers in replies.** gpt-oss-120b sometimes writes "【2】" inside a reply
-  (seen live in T03). `bot/citations.py` only removes the final "USED:" line.
 - **Subject changes.** The branch rule that dropped the page focus by comparing
   match scores fired on ordinary follow-ups from other personas ("tell me the
   November price"), so it was replaced by explicit phrases ("forget that",
@@ -99,6 +94,15 @@ What changed in behaviour, on purpose:
   when the newest message asks about cost (`PRICE_BONUS` in
   `bot/retrieval/index.py`). The offline replay passes all 20 personas again,
   and one other missed page (E04) is now retrieved too. Not run live.
+
+## Reply language and passage markers
+
+- When the newest message is clearly not English, the prompt now ends with one
+  line naming the language to answer in (`language_note` in `bot/prompt.py`).
+  Before, T03's trick turn was answered "I can't confirm ..." in English: the
+  model lifted the refusal from the English rules.
+- `bot/citations.py` removes passage markers the model writes inside the text
+  ("【2】", "[2]") and counts them as passages used.
 
 ## Still open
 
