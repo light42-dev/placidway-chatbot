@@ -33,6 +33,7 @@ PAGES = [
     Page("comparison", f"{BASE}/search-medical-pricings/Alternative-Medicine/All/1",
          "Alternative medicine price comparison across clinics",
          ("compare", "comparison", "other clinic", "other countries", "average",
+          "ayurved", "panchakarma", "naturopath", "acupunct",     # therapies only this page lists
           # "cheaper" alone often means "the cheaper of the options you gave", so only these forms
           r"cheaper (in|at|abroad|elsewhere|than|somewhere|anywhere)")),
 ]

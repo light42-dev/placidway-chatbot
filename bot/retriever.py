@@ -27,6 +27,7 @@ EARLIER_WEIGHT = 0.4        # weight of the previous user message; halves for ea
 SYNONYM_WEIGHT = 0.6        # weight of a word added through SYNONYMS, relative to the word that triggered it
 FOCUS_BONUS = 3.0           # multiplier for passages of the page under discussion
 MONEY = "_money"            # stands for any dollar amount, in passages and in questions
+CLINIC_WORDS = re.compile(r"\b(cancer|tumou?r|itc\b|immunity therapy|tijuana)", re.I)
 
 # Words that mean roughly the same thing to a visitor. A question containing
 # one word of a group also searches for the others.
@@ -39,6 +40,7 @@ SYNONYMS = [
     {"meal", "food", "eat", "nutrition", "nutritional"},
     {"video", "testimonial", "story", "review", "watch"},
     {"doctor", "physician", "staff", "team"},
+    {"ayurveda", "ayurvedic", "panchakarma"},
 ]
 
 STOPWORDS = set("""a an and are as at be but by can do does for from how i if in is it its me my of on or
@@ -67,7 +69,7 @@ def tokenize(text: str) -> list[str]:
     """Lowercase stemmed words without stopwords; hyphens are dropped ('in-patient' -> 'inpatient')."""
     text = text.lower().replace("-", "")
     tokens = [stem(word) for word in re.findall(r"[a-z0-9]+", text) if word not in STOPWORDS]
-    if re.search(r"\$\s?\d|\d\s?k\b|\busd\b|\bdollar", text):
+    if re.search(r"\$\s?\d|\d\s?(k|grand|thousand)\b|\busd\b|\bdollar", text):
         tokens.append(MONEY)
     return tokens
 
@@ -87,12 +89,19 @@ def expand(terms: set[str]) -> dict[str, float]:
 
 def find_focus_page(user_messages: list[str], last_cited: str | None) -> str | None:
     """The page the conversation is about: the newest topic word a user wrote, else the page cited last."""
-    for message in reversed(user_messages):
+    for age, message in enumerate(reversed(user_messages)):
         lowered = message.lower()
         for page in PAGES:
             if any(re.search(rf"\b{topic}", lowered) for topic in page.topics):
-                return page.key
-    return last_cited
+                return _leave_comparison(page.key, user_messages) if age else page.key
+    return _leave_comparison(last_cited, user_messages)
+
+
+def _leave_comparison(focus: str | None, user_messages: list[str]) -> str | None:
+    """A new question about ITC's own cancer care moves the focus off the other-clinics comparison page."""
+    if focus == "comparison" and user_messages and CLINIC_WORDS.search(user_messages[-1]):
+        return "profile"
+    return focus
 
 
 class Index:
