@@ -1,7 +1,8 @@
 """Turn a conversation into a grounded answer.
 
     conversation -> early exits (crisis, abuse) -> retrieve passages -> prompt
-                 -> model -> checks on the reply -> citation
+                 -> model (asked again once if it invents a figure)
+                 -> checks on the reply -> citation
 
 Every step lives in its own module; this file only puts them in order.
 """
@@ -10,7 +11,7 @@ from __future__ import annotations
 from . import config, history, prompt
 from .citations import cite, split_used_line
 from .guards import abuse, contacts, crisis, documents, figures, injection, pointers, prices
-from .llm import Completion, complete
+from .llm import Completion, LLMError, complete
 from .pages import PAGES
 from .retrieval import Passage, focus_page, load_index, pin_price_rows, video_passage
 
@@ -52,6 +53,24 @@ def _find_passages(user_messages: list[str], focus: str | None, videos: Passage 
     budget = config.CONTEXT_CHARS - (len(videos.text) if videos else 0)
     passages = ([videos] if videos else []) + index.search(user_messages, focus, budget)
     return pin_price_rows(passages, user_messages, index.passages, focus)
+
+
+def _ask_model(system: str, shown: list[dict], shown_to_model: str) -> Completion:
+    """Ask the model; if its draft states a figure it was not shown, ask once more, naming the figure.
+
+    The second answer is used whatever it says: _check_reply removes anything
+    still unsupported. Both calls count towards the tokens reported.
+    """
+    first = complete(system, shown)
+    invented = figures.unsupported(split_used_line(first.text)[0], shown_to_model)
+    if not invented:
+        return first
+    try:
+        second = complete(system + prompt.retry_note(invented), shown)
+    except LLMError:
+        return first                    # no second answer to be had; the checks clean the first
+    return Completion(second.text, first.prompt_tokens + second.prompt_tokens,
+                      first.completion_tokens + second.completion_tokens, second.model)
 
 
 def _check_reply(text: str, conversation: list[dict], user_messages: list[str], focus: str | None,
@@ -96,11 +115,11 @@ def answer(messages: list[dict]) -> dict:
              documents.extra_rules(question),
              prompt.language_note(question)]
     recalled = history.recall(older, question)
-    completion = complete(prompt.build(passages, recalled, notes), shown)
-
-    text, used = split_used_line(completion.text)
     # The passages, what was recalled and the conversation: all a figure in the reply may come from.
     shown_to_model = "\n".join([*(p.text for p in passages), recalled, *(m["content"] for m in conversation)])
+    completion = _ask_model(prompt.build(passages, recalled, notes), shown, shown_to_model)
+
+    text, used = split_used_line(completion.text)
     text = _check_reply(text, conversation, user_messages, focus, shown_to_model)
     text, sources = cite(text, used, passages)
     if videos and not sources:                      # a video question is answered from the list of titles

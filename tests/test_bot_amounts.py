@@ -127,3 +127,20 @@ def test_the_reply_language_is_named_only_for_a_clearly_non_english_question():
     from bot.prompt import language_note
     assert "Spanish" in language_note("me dijeron que cuesta como 5 mil dolares, es cierto?")
     assert language_note("no, is it $50?") == ""
+
+
+def test_the_model_is_asked_once_more_when_it_invents_a_figure(monkeypatch):
+    from bot import chat
+    from bot.llm import Completion
+    drafts = iter(["Recovery takes 45 days.\nUSED: 1", "The program lasts 3 weeks.\nUSED: 1"])
+    prompts = []
+
+    def model(system, messages):
+        prompts.append(system)
+        return Completion(next(drafts), 2000, 100, "stand-in")
+
+    monkeypatch.setattr(chat, "complete", model)
+    reply = chat.answer([{"role": "user", "content": "how long is recovery after the adenocarcinoma program?"}])
+    assert reply["answer"].startswith("The program lasts 3 weeks.")
+    assert len(prompts) == 2 and "45" in prompts[1] and "REJECTED" not in prompts[0]
+    assert reply["usage"]["total_tokens"] == 4200        # both calls are counted

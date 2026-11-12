@@ -34,6 +34,13 @@ def unlisted_price_note(amounts: list[str]) -> str:
             "price for that item.")
 
 
+def retry_note(figures: set[float]) -> str:
+    """Added for the one retry after a draft stated figures the model was not shown."""
+    named = ", ".join(f"{figure:g}" for figure in sorted(figures))
+    return (f"\n\nYOUR DRAFT WAS REJECTED: it stated {named}, which is in none of the passages. Write the reply "
+            "again using only figures the passages give. If they do not answer the question, say you don't know.")
+
+
 def language_note(question: str) -> str:
     """Names the language to answer in when the question is clearly not English, else ''.
 

@@ -1,4 +1,4 @@
-"""Budget: no reply may use more than MAX_TOKENS_PER_REPLY tokens (default 3000).
+"""Budget: no reply may use more than MAX_TOKENS_PER_REPLY tokens (default 6000).
 
 The count is prompt + completion tokens as reported by the bot in `usage`. A
 reply with no usage figure fails, because the budget cannot be checked. Long

@@ -25,7 +25,7 @@ never been run live at all; see their notes files for the turns at risk.
 
 ## Things to watch on the first live runs
 
-- **Token budget.** The largest live reply was 2,721 of 3,000 tokens. The merged
+- **Token budget.** The largest live reply was 2,721 tokens (the limit was 3,000 then; it is 6,000 now). The merged
   prompt is about 210 tokens longer than before the merge, and the passage
   budget (`CONTEXT_CHARS`) was cut from 4,800 to 4,200 characters to pay for it.
   Arabic and Spanish text costs more tokens per character.
@@ -103,6 +103,21 @@ What changed in behaviour, on purpose:
   model lifted the refusal from the English rules.
 - `bot/citations.py` removes passage markers the model writes inside the text
   ("【2】", "[2]") and counts them as passages used.
+
+## Retry, token limit and scheduled refresh
+
+- **Retry once, then fall back.** If the model's draft states a figure it was
+  not shown, `bot/chat.py` asks once more, naming the figure. The second answer
+  goes through the same checks, which drop anything still unsupported. Checked
+  with a stand-in model only; on 243 recorded live replies it would not have
+  fired.
+- **Token limit.** `MAX_TOKENS_PER_REPLY` is now 6,000, so a reply that needed
+  the second call (about 5,000 tokens) still passes the budget test.
+- **Scheduled refresh.** `.github/workflows/refresh.yml` re-crawls the pages
+  every Monday, runs the offline checks and commits `data/` only if they pass.
+  It has never run: GitHub runs scheduled workflows from the default branch
+  only, so it starts once this reaches `main`. Whether placidway.com answers
+  GitHub's servers is untested.
 
 ## Still open
 
