@@ -30,7 +30,7 @@ def unlisted_price_note(amounts: list[str]) -> str:
     """Reminds the model on later turns too, when the user refers back to their figure in other words."""
     return (f"NOTE: the user has named {', '.join(amounts)}, which no page lists. Unless it is their own budget, "
             "whenever they ask about that figure, in any words, say you can't confirm it and give every listed "
-            "price for that item.")
+            "price for that item. As always, reply in the language of the user's newest message.")
 
 
 def build(passages: list[Passage], recalled: str = "", notes: list[str] = ()) -> str:

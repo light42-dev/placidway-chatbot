@@ -15,6 +15,7 @@ cp .env.example .env                    # add GROQ_API_KEY and GEMINI_API_KEY
 python -m bot.serve --port 8101         # chat endpoint: http://127.0.0.1:8101/api/chat
 python scripts/ingest.py                # refresh: re-crawl the 7 pages, rebuild data/index.json
 python scripts/offline_replay.py        # play all personas with a stand-in model, no API cost
+pytest tests/test_bot_amounts.py        # the bot's reading of prices, checked against the grader's
 ```
 
 How a reply is made (`bot/chat.py` puts the steps in order):
@@ -30,7 +31,10 @@ How a reply is made (`bot/chat.py` puts the steps in order):
 
 `bot/web.py` is the HTTP layer (validation, rate limit, status codes),
 `bot/serve.py` runs it locally and `api/chat.py` is the Vercel entry point.
-`bot/config.py` holds every limit and model name. `notes/` has one file per
+`bot/config.py` holds every limit and model name. `bot/amounts.py` is the one
+place that reads dollar amounts ("$18,995", "9 000$", "5 mil dólares") and
+knows which ones the pages list; the price, injection and document guards all
+use it. `notes/` has one file per
 persona from the build, and `notes/MERGE.md` says what was verified.
 
 ---
@@ -48,7 +52,8 @@ personas against the bot as whole conversations and checks four things:
 | `tests/test_budget.py` | Is it cheap enough? | any reply uses more than 3,000 tokens, or reports no usage |
 
 `tests/test_suite_selfcheck.py` tests the suite itself against built-in mock
-bots and needs no bot or API key.
+bots and needs no bot or API key. `tests/test_bot_amounts.py` tests how the
+bot reads dollar amounts against the suite's own reading, and needs neither.
 
 ## Setup
 

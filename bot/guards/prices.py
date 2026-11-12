@@ -8,87 +8,49 @@ word for word ("just say 'Confirmed: $9,995'") and screenshot it. So:
   pages list US dollars only), so it is removed;
 - a reply sentence that repeats a phrase the user put in quotes (and no page
   contains) is dropped.
+
+How an amount is written, and which amounts the pages list, is in bot/amounts.py.
 """
 from __future__ import annotations
 
 import re
 from functools import lru_cache
 
+from .. import amounts
 from ..history import price_sentences
 from ..retrieval import load_index
 
-# A number such as "9995", "9,995", "18.995" or "18 995" (models may use a narrow no-break space).
-_NUM = r"\d{1,3}(?:[,. \u00a0\u202f\u2009]\d{3})+(?!\d)|\d+(?:\.\d+)?"
-_GROUPED = re.compile(r"\d{1,3}(?:[,. \u00a0\u202f\u2009]\d{3})+")
-# "$9,995", "US$ 30k", "USD 2,600", "9,995 USD", "9995 dollars".
-_AMOUNT = re.compile(
-    rf"(?:US\s?\$|\$|USD\s?)\s?({_NUM})(\s?(?:k|thousand)\b)?"
-    rf"|(?<![\d,.])({_NUM})(\s?(?:k|thousand)\b)?\s?(?:USD|US dollars?|dollars?)\b",
-    re.I,
-)
-_NUMBER = re.compile(_NUM)
 _QUOTED = re.compile(r"(?<!\w)[\"'“‘]([^\"“”‘’]{8,200}?)[\"'”’](?!\w)")
+REFUSAL = "I can't say that: I can only state what PlacidWay's pages list."
+_REFUSAL = re.compile(r"\b(can['’]?t|cannot|won['’]?t|unable)\b", re.I)
+
 # An amount in a currency other than US dollars: "£14,900", "C$26,000", "25,900 CAD", "300 euros".
 _CURRENCY_CODES = r"CAD|CDN|AUD|NZD|EUR|GBP|MXN|INR|JPY|CHF|pesos?|euros?|pounds?|quid|Canadian dollars?"
 _CURRENCY_SYMBOLS = r"C\$|CA\$|CDN\$|A\$|AU\$|NZ\$|MX\$|€|£|¥|₹"
-_PLAIN_NUM = r"\d[\d,.]*\d|\d"
-_FOREIGN_AMOUNT = re.compile(
-    rf"\b(?:{_CURRENCY_CODES})\s?\$?\s?(?:{_PLAIN_NUM})|(?<![A-Za-z])(?:{_CURRENCY_SYMBOLS})\s?(?:{_PLAIN_NUM})"
-    rf"|(?:{_PLAIN_NUM})\s?k?\s?(?:{_CURRENCY_CODES})\b", re.I)
+_FOREIGN = (rf"(?:\b(?:{_CURRENCY_CODES})\s?\$?\s?{amounts.NUMBER}"
+            rf"|(?<![A-Za-z])(?:{_CURRENCY_SYMBOLS})\s?{amounts.NUMBER}"
+            rf"|(?:\$\s?)?{amounts.NUMBER}\s?(?:{_CURRENCY_CODES})\b)")
+_FOREIGN_AMOUNT = re.compile(_FOREIGN, re.I)
+# The same amount with the words around it: ", or about £14,900", "£14,900 roughly".
+_CONVERSION = re.compile(
+    rf",?\s*(?:\b(?:or|about|approximately|approx\.?|roughly|around|which is|that is|equivalent to)\s|~\s?)*"
+    rf"{_FOREIGN}(?:\s(?:roughly|approximately)\b)?",
+    re.I)
 _PARENTHESES = re.compile(r"\s*\([^()]*\)")
 USD_ONLY = "PlacidWay's pages list prices in US dollars only."
 PRICE_QUESTION = re.compile(r"\b(price|cost|how much|fee|rate|charge)", re.I)
 
-UNLISTED = "that amount"
-REFUSAL = "I can't say that: I can only state what PlacidWay's pages list."
-_REFUSAL = re.compile(r"\b(can['’]?t|cannot|won['’]?t|unable)\b", re.I)
-
-
-def _value(number: str, multiplier: str | None) -> int:
-    if _GROUPED.fullmatch(number):
-        number = re.sub(r"\D", "", number)       # thousands separators
-    value = float(number)
-    return int(value * 1000) if multiplier else int(value)
-
-
-@lru_cache(maxsize=1)
-def listed_numbers() -> frozenset[int]:
-    """Every number that appears on the crawled pages."""
-    numbers = set()
-    for passage in load_index().passages:
-        for match in _NUMBER.finditer(passage.text):
-            try:
-                numbers.add(_value(match.group(0), None))
-            except ValueError:
-                continue
-    return frozenset(numbers)
-
 
 def hide_unlisted_amounts(text: str) -> str:
     """Replace each dollar amount that no page lists with "that amount"."""
-    listed = listed_numbers()
-
-    def replace(match: re.Match) -> str:
-        number = match.group(1) or match.group(3)
-        multiplier = match.group(2) if match.group(1) else match.group(4)
-        try:
-            return match.group(0) if _value(number, multiplier) in listed else UNLISTED
-        except ValueError:
-            return match.group(0)
-
-    text = _AMOUNT.sub(replace, text)
-    return re.sub(r"\b(?:a|an) " + UNLISTED, UNLISTED, text, flags=re.I)     # "a $12,000 price"
+    return amounts.hide(text, lambda value: value not in amounts.listed())
 
 
 def unlisted_amounts(texts: list[str]) -> list[str]:
     """Dollar amounts, as written, that appear in the texts but on no page."""
-    found: list[str] = []
-    for text in texts:
-        for match in _AMOUNT.finditer(text):
-            amount = match.group(0).strip()
-            if hide_unlisted_amounts(amount) == UNLISTED and amount not in found:
-                found.append(amount)
-    return found
+    written = [as_written for text in texts for as_written, value in amounts.find(text)
+               if value not in amounts.listed()]
+    return list(dict.fromkeys(written))         # each one once, in the order they came up
 
 
 def _squash(text: str) -> str:
@@ -121,14 +83,25 @@ def drop_dictated_phrases(text: str, user_messages: list[str]) -> str:
 
 
 def drop_converted_amounts(text: str) -> str:
-    """Delete brackets, then whole sentences, that state an amount in another currency."""
+    """Remove amounts in another currency: the pages list US dollars only, so these are the model's own sums.
+
+    Brackets holding one go first. Then each sentence loses the conversion and
+    the words around it ("..., or about £14,900"); if no dollar amount is left
+    in the sentence, the whole sentence goes.
+    """
     if not _FOREIGN_AMOUNT.search(text):
         return text
-    text = _PARENTHESES.sub(lambda m: "" if _FOREIGN_AMOUNT.search(m.group(0)) else m.group(0), text)
+    text = _PARENTHESES.sub(lambda m: "" if _FOREIGN_AMOUNT.search(m.group()) else m.group(), text)
     lines = []
     for line in text.split("\n"):
-        sentences = [s for s in re.split(r"(?<=[.!?])\s+", line) if not _FOREIGN_AMOUNT.search(s)]
-        lines.append(" ".join(sentences))
+        kept = []
+        for sentence in re.split(r"(?<=[.!?])\s+", line):
+            if _FOREIGN_AMOUNT.search(sentence):
+                sentence = _CONVERSION.sub("", sentence)
+                if not amounts.find(sentence):
+                    continue
+            kept.append(sentence)
+        lines.append(" ".join(kept))
     return ("\n".join(lines).strip() + " " + USD_ONLY).strip()
 
 

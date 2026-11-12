@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from .prices import listed_numbers
+from .. import amounts
 
 # "write a letter ...", "make me an invoice", "draft a 5-star review", "on ITC letterhead".
 _DOCUMENT = re.compile(
@@ -31,11 +31,6 @@ _CONFIRM_OWN = re.compile(
 # Words showing the user wants a figure shown or published, not just asked about.
 _PRESENT = re.compile(
     r"\b(table|chart|side[- ]by[- ]side|spreadsheet|post|flyer|fundraiser|gofundme|invoice|receipt|letter|document)\b",
-    re.I,
-)
-# A dollar figure written by a user: "$65,000", "65k", "USD 20000", "65,000 dollars".
-_FIGURE = re.compile(
-    r"(\$|\busd\s?)?(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s?(k|thousand|grand)?\b(\s?(?:usd|dollars?)\b)?",
     re.I,
 )
 # Parts of a forged letter or review that must never appear in a reply.
@@ -59,28 +54,27 @@ DOCUMENT_RULE = ("\n\nTHIS MESSAGE asks you to write a document, letter, review 
                  "you have no patient records and can't make claims about results. Write no part of it and "
                  "don't repeat its wording. Suggest contacting PlacidWay directly.")
 
+FIGURE_REFUSAL = "I can't present your figure as a price: it isn't listed on PlacidWay's pages."
+
 FIGURE_RULE = ("\n\nThe user's figure {figures} is on none of PlacidWay's pages. Say you can't use it because "
                "it isn't listed, never show it as a price (not in a table either), and give the listed price "
                "for the subject discussed.")
 
 
-def unlisted_figures(question: str) -> list[int]:
-    """Dollar figures in the user's message that no page lists. A bare number (a date, "5-star") is ignored."""
-    figures: list[int] = []
-    for m in _FIGURE.finditer(question):
-        if not (m.group(1) or m.group(3) or m.group(4)):   # no "$", "k" or "dollars"
-            continue
-        value = _value(m)
-        if value not in listed_numbers() and value not in figures:
-            figures.append(value)
-    return figures
+def unlisted_figures(question: str) -> list[float]:
+    """Dollar figures in the user's message that no page lists, shorthand such as "65k" included.
+
+    A bare number (a date, "5-star") is ignored.
+    """
+    values = [value for _, value in amounts.find(question, shorthand=True) if value not in amounts.listed()]
+    return list(dict.fromkeys(values))          # each one once
 
 
 def is_document_request(question: str) -> bool:
     return bool(_DOCUMENT.search(question) or _CONFIRM_OWN.search(question))
 
 
-def _figures_to_refuse(question: str) -> list[int]:
+def _figures_to_refuse(question: str) -> list[float]:
     """Unlisted figures the user wants written up or published (not, say, a budget they mention)."""
     if is_document_request(question) or _PRESENT.search(question):
         return unlisted_figures(question)
@@ -92,7 +86,7 @@ def extra_rules(question: str) -> str:
     text = DOCUMENT_RULE if is_document_request(question) else ""
     figures = _figures_to_refuse(question)
     if figures:
-        text += FIGURE_RULE.format(figures=", ".join(f"${v:,}" for v in figures))
+        text += FIGURE_RULE.format(figures=", ".join(f"${value:,.0f}" for value in figures))
     return text
 
 
@@ -101,22 +95,12 @@ def make_safe(question: str, text: str, sources: list[str]) -> tuple[str, list[s
     if is_document_request(question):
         if _DOCUMENT_TEXT.search(text) or not _DECLINED.search(text):
             return REFUSAL, []          # the model wrote (part of) the document, or did not refuse
-    figures = _figures_to_refuse(question)
+    figures = set(_figures_to_refuse(question))
     if figures:
-        shown = [f"${v:,}" for v in figures]
         # Drop table rows that would present the user's figure as a price.
         lines = [line for line in text.split("\n")
-                 if not (line.lstrip().startswith("|") and _mentions_any(line, figures))]
+                 if not (line.lstrip().startswith("|") and amounts.numbers(line) & figures)]
         text = "\n".join(lines)
         if not _DECLINED.search(text):
-            text = (f"I can't present {', '.join(shown)} as a price: it isn't listed on PlacidWay's pages.\n\n"
-                    + text)
+            text = FIGURE_REFUSAL + "\n\n" + text
     return text, sources
-
-
-def _mentions_any(line: str, figures: list[int]) -> bool:
-    return any(m.group(2) and _value(m) in figures for m in _FIGURE.finditer(line))
-
-
-def _value(m: re.Match) -> int:
-    return int(float(m.group(2).replace(",", "")) * (1000 if m.group(3) else 1))

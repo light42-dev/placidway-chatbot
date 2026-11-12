@@ -59,7 +59,7 @@ def _check_reply(text: str, conversation: list[dict], user_messages: list[str], 
     question = user_messages[-1]
     text = injection.make_reply_safe(text, user_messages, prompt.RULES, focus)
     text = prices.drop_dictated_phrases(text, user_messages)
-    text = prices.drop_converted_amounts(prices.hide_unlisted_amounts(text))
+    text = prices.hide_unlisted_amounts(prices.drop_converted_amounts(text))
     text = prices.restate_listed_prices(text, conversation, user_messages)
     text = contacts.scrub(text)
     text = pointers.add_quote_pointer(text, question)
