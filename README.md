@@ -1,4 +1,41 @@
-# PlacidWay bot test suite
+# PlacidWay ITC chatbot and its test suite
+
+This repository holds two things: the chatbot (`bot/`, `api/`, `scripts/`,
+`data/`) and the pytest suite that grades it (`tests/`, `botsuite/`,
+`personas/`). The bot is described first; the suite's own documentation
+follows unchanged.
+
+## The bot
+
+It answers visitor questions from 7 PlacidWay pages about ITC (Immunity
+Therapy Center) and nothing else. Python standard library only.
+
+```bash
+cp .env.example .env                    # add GROQ_API_KEY and GEMINI_API_KEY
+python -m bot.serve --port 8101         # chat endpoint: http://127.0.0.1:8101/api/chat
+python scripts/ingest.py                # refresh: re-crawl the 7 pages, rebuild data/index.json
+python scripts/offline_replay.py        # play all personas with a stand-in model, no API cost
+```
+
+How a reply is made (`bot/chat.py` puts the steps in order):
+
+| Step | Where | What happens |
+|---|---|---|
+| 1. Early exits | `bot/guards/crisis.py`, `abuse.py` | A user in crisis gets a crisis line and no prices. Flooding or bulk-export requests get a fixed refusal with no model call. |
+| 2. Retrieve | `bot/retrieval/` | Keyword (BM25) search over the passages in `data/index.json`, boosted towards the page under discussion (`focus.py`). Spanish and Arabic words are mapped to English; misspellings are corrected. Video titles and price-table rows have their own lookups. |
+| 3. Prompt | `bot/prompt.py`, `bot/history.py` | Fixed rules, the numbered passages, the newest 8 messages, and a short recall of what was said before those. |
+| 4. Model | `bot/llm.py` | Groq models in order, then Gemini Flash-Lite, each tried when the one before is rate-limited or fails. |
+| 5. Check the reply | `bot/guards/` | Code enforces what must hold whatever the model wrote: no unlisted or converted prices, no dictated wording, no foreign links or contact details, no forged documents, a free-quote pointer when the pages lack the answer, a doctor pointer on health questions. |
+| 6. Cite | `bot/citations.py` | The model names the passages it used; the code adds the page URLs, so a link is never invented. |
+
+`bot/web.py` is the HTTP layer (validation, rate limit, status codes),
+`bot/serve.py` runs it locally and `api/chat.py` is the Vercel entry point.
+`bot/config.py` holds every limit and model name. `notes/` has one file per
+persona from the build, and `notes/MERGE.md` says what was verified.
+
+---
+
+# The test suite
 
 A pytest suite for the PlacidWay ITC chatbot. It plays 20 scripted user
 personas against the bot as whole conversations and checks four things:

@@ -11,9 +11,8 @@ writes one.
 from __future__ import annotations
 
 import re
-from functools import lru_cache
 
-from .retriever import load_index
+from .prices import listed_numbers
 
 # "write a letter ...", "make me an invoice", "draft a 5-star review", "on ITC letterhead".
 _DOCUMENT = re.compile(
@@ -65,16 +64,6 @@ FIGURE_RULE = ("\n\nThe user's figure {figures} is on none of PlacidWay's pages.
                "for the subject discussed.")
 
 
-@lru_cache(maxsize=1)
-def listed_amounts() -> frozenset[int]:
-    """Every dollar amount that appears in the indexed pages."""
-    amounts = set()
-    for passage in load_index().passages:
-        for number in re.findall(r"\$\s?(\d[\d,]*)", passage.text):
-            amounts.add(int(number.replace(",", "")))
-    return frozenset(amounts)
-
-
 def unlisted_figures(question: str) -> list[int]:
     """Dollar figures in the user's message that no page lists. A bare number (a date, "5-star") is ignored."""
     figures: list[int] = []
@@ -82,7 +71,7 @@ def unlisted_figures(question: str) -> list[int]:
         if not (m.group(1) or m.group(3) or m.group(4)):   # no "$", "k" or "dollars"
             continue
         value = _value(m)
-        if value not in listed_amounts() and value not in figures:
+        if value not in listed_numbers() and value not in figures:
             figures.append(value)
     return figures
 

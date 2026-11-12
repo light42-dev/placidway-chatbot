@@ -12,8 +12,8 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from .config import ROOT
-from .retriever import Passage
+from ..config import ROOT
+from .index import Passage
 
 ASKS_FOR_VIDEOS = re.compile(r"vid[eé]o|t[eé]moign|testimon|stor(y|ies)|histoire|historia", re.I)
 MAX_TITLES = 25             # keeps the passage under about 1,500 characters

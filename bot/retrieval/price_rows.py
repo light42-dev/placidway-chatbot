@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import re
 
-from .config import CONTEXT_CHARS
-from .retriever import Passage
+from ..config import CONTEXT_CHARS
+from .index import Passage
 
 # A table row with a label in its first cell and a dollar amount later on.
 PRICED_ROW = re.compile(r"^\|\s*([^|\n]+?)\s*\|[^\n]*\$\s?\d", re.M)

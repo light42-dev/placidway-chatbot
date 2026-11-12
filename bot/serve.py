@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 from http.server import ThreadingHTTPServer
 
-from .retriever import load_index
+from .retrieval import load_index
 from .web import ChatHandler
 
 

@@ -27,14 +27,23 @@ PAGES = [
          f"{BASE}/package/7901/Alternative-Anal-Cancer-Treatment-Package-in-Tijuana-Mexico-by-ITC",
          "Alternative Anal Cancer Treatment package", ("anal",)),
     Page("videos", f"{BASE}/profile-videos/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center",
-         "ITC videos and testimonials", ("video", "testimonial", "watch")),
+         "ITC videos and testimonials", ("video", "testimonial", "temoign", "watch")),
     Page("price_list", f"{BASE}/price-list/5/Alternative-Cancer-Treatment-by-ITC-Immunity-Therapy-Center",
          "ITC price list", ("price list", "pricelist", "procedures")),
     Page("comparison", f"{BASE}/search-medical-pricings/Alternative-Medicine/All/1",
          "Alternative medicine price comparison across clinics",
          ("compare", "comparison", "other clinic", "other countries", "average",
+          "ayurved", "panchakarma", "naturopath", "acupunct",     # therapies only this page lists
           # "cheaper" alone often means "the cheaper of the options you gave", so only these forms
           r"cheaper (in|at|abroad|elsewhere|than|somewhere|anywhere)")),
 ]
 
 PAGE_BY_KEY = {page.key: page for page in PAGES}
+
+# Questions about the clinic itself (founder, doctors, location) are answered from its profile.
+# These words count only in the newest message: such a question is a one-off, and
+# the package discussed before it stays the subject of later follow-ups.
+CLINIC_PAGE = "profile"
+CLINIC_TOPICS = (r"found(ed|er|ing)\b", r"doctors?\b", r"physicians?\b", "medical director",
+                 r"staff\b", "medical team", "who runs", "owner", "accredit", r"located\b", r"location\b")
+COMPARISON_PAGE = "comparison"

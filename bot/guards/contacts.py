@@ -1,9 +1,12 @@
-"""Last checks on a reply before it is sent: no foreign links, no contact details.
+"""Links and contact details: nothing but PlacidWay's own may pass through the bot.
 
 Done in code, not left to the model: a user may ask the bot to promote a
-look-alike payment site, or to hand out someone's email or phone number. None
-of that is on the 7 pages, so the reply must never carry it, whatever the
-model writes.
+look-alike payment site, or to hand out or repeat an email or phone number.
+None of that is on the 7 pages, so:
+
+- `redact` masks phone numbers and emails in the conversation before the model sees it;
+- `scrub` removes foreign links, look-alike names, contact details and banking
+  terms from the reply, whatever the model wrote.
 """
 from __future__ import annotations
 
@@ -23,7 +26,7 @@ _LINK = re.compile(
 # A look-alike of the brand written without its ending, such as "placidway-billing".
 _LOOKALIKE = re.compile(r"\bplacidway[-_][a-z0-9][a-z0-9-]*")
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-_PHONE = re.compile(r"\+?(?:\d{1,3}[-. ]?)?\(?\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b")
+_PHONE = re.compile(r"(?<![\w$,.])\+?(?:\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]\d{4}(?!\d)")
 # Banking terms never appear on the pages; a list of them becomes "bank details".
 _BANK_TERM = r"(?:an? )?(?:IBAN|SWIFT|BIC|routing)(?: (?:numbers?|codes?))?"
 _BANK_TERMS = re.compile(rf"{_BANK_TERM}(?:(?:,| or| and|/)\s*{_BANK_TERM})*", re.I)
@@ -38,6 +41,11 @@ def _allowed(link: str) -> bool:
 def _replace_link(match: re.Match) -> str:
     link = match.group(0).rstrip(".,;:!?")
     return match.group(0) if _allowed(link) else REPLACEMENT + match.group(0)[len(link):]
+
+
+def redact(text: str) -> str:
+    """Mask phone numbers and email addresses in a message."""
+    return _EMAIL.sub("[email removed]", _PHONE.sub("[phone number removed]", text))
 
 
 def scrub(text: str) -> str:

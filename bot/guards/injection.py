@@ -16,7 +16,8 @@ import binascii
 import re
 from functools import lru_cache
 
-from .config import ROOT
+from ..config import ROOT
+from ..language import detect
 
 ATTACK = re.compile(
     r"\b(ignore|disregard|forget|override|bypass)\b[^.\n]{0,40}\b(instruction|rule|prompt|guideline|polic)"
@@ -111,22 +112,10 @@ def listed_amounts(page: str | None = None) -> frozenset[float]:
     return frozenset(values)
 
 
-def _language(text: str) -> str:
-    letters = [c for c in text if c.isalpha()]
-    if letters and sum("؀" <= c <= "ۿ" for c in letters) / len(letters) > 0.4:
-        return "ar"
-    words = re.findall(r"[a-záéíóúñàâçèêëîïôûù]+", text.lower())
-    counts = {lang: sum(w in stop for w in words) for lang, stop in (
-        ("es", {"el", "la", "los", "de", "que", "y", "es", "para", "con", "no", "por", "precio"}),
-        ("fr", {"le", "la", "les", "de", "des", "et", "est", "pour", "avec", "pas", "je", "vous"}),
-        ("en", {"the", "and", "is", "of", "to", "for", "that", "with", "i", "you", "can", "price"}))}
-    return max(counts, key=counts.get) if any(counts.values()) else "en"
-
-
 def mask_unlisted_amounts(text: str, pushed: set[float], focus_page: str | None) -> str:
     """Mask dollar amounts that are on none of the pages, and amounts an attacker pushed
     (`pushed`) unless the page under discussion lists them; also a pushed bare number after a price word."""
-    mask = MASK[_language(text)]
+    mask = MASK[detect(text)]
     on_any_page, on_focus_page = listed_amounts(), listed_amounts(focus_page)
 
     def unlisted(value: float) -> bool:
@@ -184,7 +173,7 @@ def make_reply_safe(text: str, user_messages: list[str], rules: str, focus_page:
     text = mask_unlisted_amounts(text, pushed, focus_page)
     text = _drop_claims(text)
     if is_attack(user_messages[-1]):
-        refusal, pattern = REFUSALS[_language(text)]
+        refusal, pattern = REFUSALS[detect(text)]
         if not pattern.search(text):
             text = refusal + " " + text
     return text

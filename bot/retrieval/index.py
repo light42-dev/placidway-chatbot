@@ -3,12 +3,13 @@
 The index (data/index.json) is small, about 180 passages, so plain BM25
 keyword scoring in memory is enough: no embeddings and no extra services.
 
-Three additions make real questions work:
+Additions that make real questions work:
 - synonyms: "how much" should find a passage that says "Cost ... $18,995",
   so related words are grouped (SYNONYMS) and money amounts become one token;
 - earlier user messages also count as query words, at a lower weight, so
   "and the inpatient one?" still finds the package that was being discussed;
-- passages from the page under discussion (the focus page) get a bonus.
+- passages from the page under discussion (the focus page, see focus.py) get a bonus;
+- Spanish and Arabic words are mapped to English, and near-miss spellings are corrected.
 """
 from __future__ import annotations
 
@@ -19,8 +20,10 @@ from collections import Counter
 from dataclasses import dataclass
 from functools import lru_cache
 
-from .config import CONTEXT_CHARS, ROOT
-from .pages import PAGES
+from ..config import CONTEXT_CHARS, ROOT
+from .arabic import with_glosses
+from .spanish import to_english
+from .spelling import correct
 
 K1, B = 1.5, 0.75           # the usual BM25 constants
 EARLIER_WEIGHT = 0.4        # weight of the previous user message; halves for each one before it
@@ -31,14 +34,20 @@ MONEY = "_money"            # stands for any dollar amount, in passages and in q
 # Words that mean roughly the same thing to a visitor. A question containing
 # one word of a group also searches for the others.
 SYNONYMS = [
-    {"cost", "price", "much", "pay", "fee", "total", "expensive", "afford", "program", MONEY},
-    {"include", "cover", "exclude", "extra", "additional"},
+    {"cost", "price", "much", "pay", "fee", "total", "expensive", "afford", "program", "programme",
+     "dearer", "pricier", "cheaper", MONEY},
+    {"include", "cover", "exclude", "extra", "additional", "add", "addon", "optional"},
     {"inpatient", "overnight", "stay", "room", "hotel", "accommodation", "board"},
     {"outpatient", "daily"},
     {"flight", "fly", "airport", "plane", "travel", "transport"},
     {"meal", "food", "eat", "nutrition", "nutritional"},
     {"video", "testimonial", "story", "review", "watch"},
-    {"doctor", "physician", "staff", "team"},
+    {"doctor", "dr", "physician", "staff", "team"},
+    {"insurance", "insurer", "coverage", "medicare", "medicaid", "tricare", "reimburse", "refund"},
+    {"mobility", "mobile", "walker", "wheelchair", "cane", "crutch", "disabled", "disability"},
+    {"companion", "family", "guest", "relative", "friend", "caregiver", "partner", "spouse", "husband", "wife",
+     "mother", "father", "daughter", "son", "sister", "brother"},
+    {"ayurveda", "ayurvedic", "panchakarma"},
 ]
 
 STOPWORDS = set("""a an and are as at be but by can do does for from how i if in is it its me my of on or
@@ -49,6 +58,11 @@ so that the their them there this to was we what when where which who will with 
 class Passage:
     page: str     # page key from bot/pages.py
     text: str
+
+
+def search_text(text: str) -> str:
+    """Lowercase, accent-free text in which known Spanish and Arabic words have become English ones."""
+    return to_english(with_glosses(text))
 
 
 def stem(word: str) -> str:
@@ -64,10 +78,13 @@ def stem(word: str) -> str:
 
 
 def tokenize(text: str) -> list[str]:
-    """Lowercase stemmed words without stopwords; hyphens are dropped ('in-patient' -> 'inpatient')."""
-    text = text.lower().replace("-", "")
+    """Lowercase stemmed English words without stopwords; hyphens are dropped ('in-patient' -> 'inpatient').
+
+    Spanish and Arabic question words are first turned into the English words the pages use.
+    """
+    text = search_text(text).replace("-", "")
     tokens = [stem(word) for word in re.findall(r"[a-z0-9]+", text) if word not in STOPWORDS]
-    if re.search(r"\$\s?\d|\d\s?k\b|\busd\b|\bdollar", text):
+    if re.search(r"\$\s?\d|\d\s?(k|grand|thousand)\b|\busd\b|\bdollar", text):
         tokens.append(MONEY)
     return tokens
 
@@ -85,16 +102,6 @@ def expand(terms: set[str]) -> dict[str, float]:
     return weights
 
 
-def find_focus_page(user_messages: list[str], last_cited: str | None) -> str | None:
-    """The page the conversation is about: the newest topic word a user wrote, else the page cited last."""
-    for message in reversed(user_messages):
-        lowered = message.lower()
-        for page in PAGES:
-            if any(re.search(rf"\b{topic}", lowered) for topic in page.topics):
-                return page.key
-    return last_cited
-
-
 class Index:
     def __init__(self, passages: list[Passage]):
         self.passages = passages
@@ -105,7 +112,7 @@ class Index:
         total = len(passages)
         self.idf = {term: math.log(1 + (total - df + 0.5) / (df + 0.5)) for term, df in document_frequency.items()}
 
-    def _score(self, i: int, query: dict[str, float]) -> float:
+    def score(self, i: int, query: dict[str, float]) -> float:
         counts, length = self.term_counts[i], self.lengths[i]
         score = 0.0
         for term, weight in query.items():
@@ -121,14 +128,16 @@ class Index:
         query: dict[str, float] = {}
         weight = 1.0
         for message in reversed(user_messages):          # newest first
-            for term, synonym_weight in expand(set(tokenize(message))).items():
+            # A misspelled word ("prostrate") stands in for the closest word the pages use.
+            terms = {term if term in self.idf else correct(term, self.idf) or term for term in tokenize(message)}
+            for term, synonym_weight in expand(terms).items():
                 if term in self.idf:
                     query[term] = max(query.get(term, 0.0), weight * synonym_weight)
             weight = EARLIER_WEIGHT if weight == 1.0 else weight / 2
 
         scored = []
         for i, passage in enumerate(self.passages):
-            score = self._score(i, query)
+            score = self.score(i, query)
             if focus_page and passage.page == focus_page:
                 score *= FOCUS_BONUS
             if score > 0:
