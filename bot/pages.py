@@ -11,7 +11,7 @@ class Page:
     key: str      # short name, used for file names and in the index
     url: str
     title: str    # how the page is introduced to the model
-    topics: tuple[str, ...] = ()   # words in a question that point at this page
+    topics: tuple[str, ...] = ()   # regex fragments: words in a question that point at this page
 
 
 PAGES = [
@@ -32,7 +32,9 @@ PAGES = [
          "ITC price list", ("price list", "pricelist", "procedures")),
     Page("comparison", f"{BASE}/search-medical-pricings/Alternative-Medicine/All/1",
          "Alternative medicine price comparison across clinics",
-         ("compare", "comparison", "other clinic", "other countries", "average", "cheaper")),
+         ("compare", "comparison", "other clinic", "other countries", "average",
+          # "cheaper" alone often means "the cheaper of the options you gave", so only these forms
+          r"cheaper (in|at|abroad|elsewhere|than|somewhere|anywhere)")),
 ]
 
 PAGE_BY_KEY = {page.key: page for page in PAGES}

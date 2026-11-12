@@ -7,11 +7,27 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
 from . import config
+
+# provider name -> time.monotonic() until which it asked us not to call it again
+_paused_until: dict[str, float] = {}
+MAX_PAUSE_S = 900       # never skip a provider for longer than this on its say-so
+RETRY_WAIT_S = 1.0      # pause before retrying the last provider after a 5xx error
+
+
+def _pause_on_rate_limit(name: str, exc: urllib.error.HTTPError) -> None:
+    """Honour a 429's Retry-After so the next requests go straight to the fallback."""
+    try:
+        seconds = float(exc.headers.get("retry-after") or 0)
+    except (TypeError, ValueError):
+        seconds = 0
+    if seconds > 0:
+        _paused_until[name] = time.monotonic() + min(seconds, MAX_PAUSE_S)
 
 
 class LLMError(Exception):
@@ -73,6 +89,17 @@ def _call_gemini(system: str, messages: list[dict]) -> Completion:
     return Completion(text.strip(), prompt, total - prompt, f"gemini:{config.GEMINI_MODEL}")
 
 
+def _call_with_retry(call, system: str, messages: list[dict], retry: bool) -> Completion:
+    """Call a provider; if `retry`, try once more after a short wait when it is briefly overloaded (5xx)."""
+    try:
+        return call(system, messages)
+    except urllib.error.HTTPError as exc:
+        if not retry or exc.code < 500:
+            raise
+        time.sleep(RETRY_WAIT_S)
+        return call(system, messages)
+
+
 def complete(system: str, messages: list[dict]) -> Completion:
     """Try Groq, then Gemini. Raises LLMError if neither gives a non-empty answer."""
     providers = [("groq", config.GROQ_API_KEY, _call_groq), ("gemini", config.GEMINI_API_KEY, _call_gemini)]
@@ -82,13 +109,19 @@ def complete(system: str, messages: list[dict]) -> Completion:
         if not key:
             failures.append(f"{name}: no API key set")
             continue
+        if time.monotonic() < _paused_until.get(name, 0):
+            failures.append(f"{name}: rate-limited (waiting for its Retry-After)")
+            rate_limits += 1
+            continue
         try:
-            completion = call(system, messages)
+            completion = _call_with_retry(call, system, messages, retry=name == providers[-1][0])
             if completion.text:
                 return completion
             failures.append(f"{name}: empty answer")
         except urllib.error.HTTPError as exc:
-            rate_limits += exc.code == 429
+            if exc.code == 429:
+                rate_limits += 1
+                _pause_on_rate_limit(name, exc)
             failures.append(f"{name}: HTTP {exc.code}")
         except Exception as exc:        # timeout, connection error, unexpected response shape
             failures.append(f"{name}: {type(exc).__name__}")
