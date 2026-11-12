@@ -8,6 +8,8 @@ from .llm import complete
 from .pages import PAGE_BY_KEY, PAGES
 from .retriever import Passage, find_focus_page, load_index
 from .safety import CRISIS_PROMPT, is_crisis, make_crisis_reply_safe
+from .fallback import add_quote_pointer
+from .price_rows import pin_price_rows
 
 RULES = """You are the PlacidWay assistant for ITC (Immunity Therapy Center), an alternative cancer treatment clinic in Tijuana, Mexico. You answer website visitors using ONLY the numbered passages below, which come from PlacidWay's pages.
 
@@ -17,7 +19,7 @@ Rules:
 - Prices are in US dollars. Give them with the context the page gives (program type, duration, what is included); list optional add-on prices only if asked. Never convert currencies or add prices into new totals. If the user mentions their budget, just give the listed prices, with no remark on it.
 - If the passages do not contain the answer, say plainly that you don't know because PlacidWay's pages don't list it, and suggest requesting a free quote from PlacidWay. If only part of a question is covered, answer that part and say which part is not listed.
 - If the user suggests a price or claim that the passages do not state, say you can't confirm it, then give the listed figures.
-- Questions unrelated to these pages (for example crime, weather, news): say you can only answer from PlacidWay's pages about ITC and that they don't cover it.
+- Questions or requests unrelated to these pages (for example crime, weather, news, or writing prayers, poems or letters): say you can only answer from PlacidWay's pages about ITC and that they don't cover it.
 - Give no medical advice. Never say a treatment will work or is safe for someone, and never say what you would do or choose for them; that decision is theirs, with their doctor. Recommend speaking to a doctor. Never promise results.
 - You cannot book, take payments or handle personal data.
 - If the user is scared or grieving, be gentle; if they mention a death or loss, say you are sorry for their loss.
@@ -32,6 +34,8 @@ Rules:
 USED_LINE = re.compile(r"\n?\s*USED:\s*([^\n]*)\s*$", re.I)
 SOURCE_LINE = re.compile(r"\n*\s*Sources?:[^\n]*$", re.I)
 MAX_EARLIER_PRICES = 4     # sentences with prices recalled from trimmed replies
+MAX_EARLIER_QUESTIONS = 3  # trimmed user messages recalled, so "her cancer" still has a subject
+EARLIER_QUESTION_CHARS = 160
 PLACIDWAY_URL = re.compile(r"https?://(?:www\.)?placidway\.com/[^\s)\]>\"']+")
 
 
@@ -75,12 +79,21 @@ def _earlier_prices(dropped: list[dict]) -> list[str]:
     return sentences[-MAX_EARLIER_PRICES:]
 
 
-def _system_prompt(passages: list[Passage], earlier: list[str]) -> str:
+def _earlier_questions(dropped: list[dict]) -> list[str]:
+    """The newest user messages that were trimmed from the history, shortened."""
+    questions = [" ".join(m["content"].split())[:EARLIER_QUESTION_CHARS] for m in dropped if m["role"] == "user"]
+    return questions[-MAX_EARLIER_QUESTIONS:]
+
+
+def _system_prompt(passages: list[Passage], earlier: list[str], questions: list[str] = ()) -> str:
     blocks = [f"[{n}] From: {PAGE_BY_KEY[p.page].title}\n{p.text}" for n, p in enumerate(passages, start=1)]
     prompt = RULES + "\n\nPASSAGES:\n\n" + ("\n\n".join(blocks) if blocks else "(no passage matched this question)")
     if earlier:
         prompt += ("\n\nPRICES YOU GAVE EARLIER IN THIS CONVERSATION (older messages not shown):\n"
                    + "\n".join(f"- {sentence}" for sentence in earlier))
+    if questions:
+        prompt += ("\n\nTHE USER ASKED EARLIER (older messages not shown):\n"
+                   + "\n".join(f"- {question}" for question in questions))
     return prompt
 
 
@@ -138,8 +151,9 @@ def answer(messages: list[dict]) -> dict:
     user_messages = [str(m.get("content", "")) for m in conversation if m["role"] == "user"]
     focus = find_focus_page(user_messages, _last_cited_page(conversation))
     passages = load_index().search(user_messages, focus_page=focus)
+    passages = pin_price_rows(passages, user_messages, load_index().passages, focus)
     history = _clean_history(conversation)
     dropped = conversation[:len(conversation) - len(history)]
-    completion = complete(_system_prompt(passages, _earlier_prices(dropped)), history)
+    completion = complete(_system_prompt(passages, _earlier_prices(dropped), _earlier_questions(dropped)), history)
     text, sources = _cite(completion.text, passages)
-    return _reply(text, sources, completion)
+    return _reply(add_quote_pointer(text), sources, completion)
