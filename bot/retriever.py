@@ -21,6 +21,7 @@ from functools import lru_cache
 
 from .config import CONTEXT_CHARS, ROOT
 from .pages import PAGES
+from .spelling import correct
 
 K1, B = 1.5, 0.75           # the usual BM25 constants
 EARLIER_WEIGHT = 0.4        # weight of the previous user message; halves for each one before it
@@ -39,6 +40,8 @@ SYNONYMS = [
     {"meal", "food", "eat", "nutrition", "nutritional"},
     {"video", "testimonial", "story", "review", "watch"},
     {"doctor", "physician", "staff", "team"},
+    {"insurance", "medicare", "medicaid", "tricare", "insurer", "coverage"},
+    {"mobility", "mobile", "walker", "wheelchair", "cane", "crutch", "disabled", "disability"},
 ]
 
 STOPWORDS = set("""a an and are as at be but by can do does for from how i if in is it its me my of on or
@@ -121,7 +124,8 @@ class Index:
         query: dict[str, float] = {}
         weight = 1.0
         for message in reversed(user_messages):          # newest first
-            for term, synonym_weight in expand(set(tokenize(message))).items():
+            terms = {term if term in self.idf else correct(term, self.idf) or term for term in tokenize(message)}
+            for term, synonym_weight in expand(terms).items():
                 if term in self.idf:
                     query[term] = max(query.get(term, 0.0), weight * synonym_weight)
             weight = EARLIER_WEIGHT if weight == 1.0 else weight / 2

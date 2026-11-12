@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 from . import config
+from .guards import add_missing_pointers, quoted_passage
 from .llm import complete
 from .pages import PAGE_BY_KEY, PAGES
 from .retriever import Passage, find_focus_page, load_index
@@ -17,8 +18,8 @@ Rules:
 - Prices are in US dollars. Give them with the context the page gives (program type, duration, what is included); list optional add-on prices only if asked. Never convert currencies or add prices into new totals. If the user mentions their budget, just give the listed prices, with no remark on it.
 - If the passages do not contain the answer, say plainly that you don't know because PlacidWay's pages don't list it, and suggest requesting a free quote from PlacidWay. If only part of a question is covered, answer that part and say which part is not listed.
 - If the user suggests a price or claim that the passages do not state, say you can't confirm it, then give the listed figures.
-- Questions unrelated to these pages (for example crime, weather, news): say you can only answer from PlacidWay's pages about ITC and that they don't cover it.
-- Give no medical advice. Never say a treatment will work or is safe for someone, and never say what you would do or choose for them; that decision is theirs, with their doctor. Recommend speaking to a doctor. Never promise results.
+- Questions unrelated to these pages (for example crime, weather, news, sports, TV): say you can only answer from PlacidWay's pages about ITC and that they don't cover it.
+- Give no medical advice. Never say a treatment will work or is safe for someone, and never say what you would do or choose for them; that decision is theirs, with their doctor. Recommend speaking to a doctor, but still give any relevant facts from the passages. Never promise results.
 - You cannot book, take payments or handle personal data.
 - If the user is scared or grieving, be gentle; if they mention a death or loss, say you are sorry for their loss.
 - If the user is angry, insulting or accusing: stay calm and kind. Never repeat profanity or insults, never agree with an accusation, never admit wrongdoing for anyone, and never call anyone or anything a scam, even to deny it. Say: "I'm an automated assistant, so I can't speak to what happened or judge the clinic." Then suggest contacting PlacidWay directly to raise a complaint or speak to a person. Keep such replies under 60 words. If they repeat the same demand, give the same short refusal again.
@@ -84,7 +85,7 @@ def _system_prompt(passages: list[Passage], earlier: list[str]) -> str:
     return prompt
 
 
-def _cite(text: str, passages: list[Passage]) -> tuple[str, list[str]]:
+def _cite(text: str, passages: list[Passage], user_message: str = "") -> tuple[str, list[str]]:
     """Replace the model's final "USED: 1, 3" line with a 'Source:' line of real page URLs.
 
     The model only points at passages; the URLs come from our own page list,
@@ -95,6 +96,7 @@ def _cite(text: str, passages: list[Passage]) -> tuple[str, list[str]]:
     text = USED_LINE.sub("", text)
     text = SOURCE_LINE.sub("", text)
     text = PLACIDWAY_URL.sub("", text).strip()          # drop any URL the model typed itself
+    text = add_missing_pointers(text, user_message)
 
     urls: list[str] = []
     for number in numbers:
@@ -105,6 +107,8 @@ def _cite(text: str, passages: list[Passage]) -> tuple[str, list[str]]:
     if not urls and "$" in text and passages:
         # A price was stated but no passage was named: cite the best-matching page.
         urls.append(PAGE_BY_KEY[passages[0].page].url)
+    elif not urls and (quoted := quoted_passage(text, [p.text for p in passages])) is not None:
+        urls.append(PAGE_BY_KEY[passages[quoted].page].url)   # the reply repeats this passage's words
     if urls:
         text += "\n\nSource: " + " , ".join(urls)
     return text, urls
@@ -141,5 +145,5 @@ def answer(messages: list[dict]) -> dict:
     history = _clean_history(conversation)
     dropped = conversation[:len(conversation) - len(history)]
     completion = complete(_system_prompt(passages, _earlier_prices(dropped)), history)
-    text, sources = _cite(completion.text, passages)
+    text, sources = _cite(completion.text, passages, user_messages[-1])
     return _reply(text, sources, completion)
