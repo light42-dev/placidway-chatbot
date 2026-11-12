@@ -39,6 +39,8 @@ SYNONYMS = [
     {"meal", "food", "eat", "nutrition", "nutritional"},
     {"video", "testimonial", "story", "review", "watch"},
     {"doctor", "physician", "staff", "team"},
+    {"companion", "family", "guest", "sister", "brother", "husband", "wife", "partner", "spouse",
+     "mother", "father", "daughter", "son", "friend", "caregiver", "relative"},
 ]
 
 STOPWORDS = set("""a an and are as at be but by can do does for from how i if in is it its me my of on or
