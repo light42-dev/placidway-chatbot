@@ -7,6 +7,7 @@ Each module covers one risk:
 - injection   attempts to override the rules, leak them or slip in prices
 - documents   requests for letters, invoices, reviews, or confirmation of a patient's treatment
 - prices      amounts no page lists, converted currencies, dictated wording
+- figures     any other number (a duration, a percentage) the model was not shown
 - contacts    foreign links, phone numbers, emails, bank details
 - pointers    a free quote when the pages lack the answer; a doctor for health questions
 """

@@ -12,11 +12,18 @@ Therapy Center) and nothing else. Python standard library only.
 
 ```bash
 cp .env.example .env                    # add GROQ_API_KEY and GEMINI_API_KEY
-python -m bot.serve --port 8101         # chat endpoint: http://127.0.0.1:8101/api/chat
+python -m bot.serve --port 8101         # chat page: http://127.0.0.1:8101/  (endpoint: /api/chat)
 python scripts/ingest.py                # refresh: re-crawl the 7 pages, rebuild data/index.json
 python scripts/offline_replay.py        # play all personas with a stand-in model, no API cost
 pytest tests/test_bot_amounts.py        # the bot's reading of prices, checked against the grader's
 ```
+
+Deploying to Vercel (not yet done; the setup has only been run locally):
+
+1. Import the repository in Vercel. No framework and no build command are needed.
+2. Add `GROQ_API_KEY` and `GEMINI_API_KEY` under Settings, Environment Variables.
+3. Deploy. `public/index.html` is the chat page at `/`, `api/chat.py` is the
+   endpoint at `/api/chat`, and `.vercelignore` leaves the test suite out.
 
 How a reply is made (`bot/chat.py` puts the steps in order):
 
@@ -26,7 +33,7 @@ How a reply is made (`bot/chat.py` puts the steps in order):
 | 2. Retrieve | `bot/retrieval/` | Keyword (BM25) search over the passages in `data/index.json`, boosted towards the page under discussion (`focus.py`). Spanish and Arabic words are mapped to English; misspellings are corrected. Video titles and price-table rows have their own lookups. |
 | 3. Prompt | `bot/prompt.py`, `bot/history.py` | Fixed rules, the numbered passages, the newest 8 messages, and a short recall of what was said before those. |
 | 4. Model | `bot/llm.py` | Groq models in order, then Gemini Flash-Lite, each tried when the one before is rate-limited or fails. |
-| 5. Check the reply | `bot/guards/` | Code enforces what must hold whatever the model wrote: no unlisted or converted prices, no dictated wording, no foreign links or contact details, no forged documents, a free-quote pointer when the pages lack the answer, a doctor pointer on health questions. |
+| 5. Check the reply | `bot/guards/` | Code enforces what must hold whatever the model wrote: no unlisted or converted prices, no dictated wording, no foreign links or contact details, no forged documents, no figure the model was not shown, a free-quote pointer when the pages lack the answer, a doctor pointer on health questions. |
 | 6. Cite | `bot/citations.py` | The model names the passages it used; the code adds the page URLs, so a link is never invented. |
 
 `bot/web.py` is the HTTP layer (validation, rate limit, status codes),

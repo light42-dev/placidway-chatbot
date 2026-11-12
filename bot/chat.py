@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from . import config, history, prompt
 from .citations import cite, split_used_line
-from .guards import abuse, contacts, crisis, documents, injection, pointers, prices
+from .guards import abuse, contacts, crisis, documents, figures, injection, pointers, prices
 from .llm import Completion, complete
 from .pages import PAGES
 from .retrieval import Passage, focus_page, load_index, pin_price_rows, video_passage
@@ -54,12 +54,14 @@ def _find_passages(user_messages: list[str], focus: str | None, videos: Passage 
     return pin_price_rows(passages, user_messages, index.passages, focus)
 
 
-def _check_reply(text: str, conversation: list[dict], user_messages: list[str], focus: str | None) -> str:
+def _check_reply(text: str, conversation: list[dict], user_messages: list[str], focus: str | None,
+                 shown_to_model: str) -> str:
     """Rules that must hold whatever the model wrote. Order matters: remove first, then add."""
     question = user_messages[-1]
     text = injection.make_reply_safe(text, user_messages, prompt.RULES, focus)
     text = prices.drop_dictated_phrases(text, user_messages)
     text = prices.hide_unlisted_amounts(prices.drop_converted_amounts(text))
+    text = figures.drop_unsupported_figures(text, shown_to_model)
     text = prices.restate_listed_prices(text, conversation, user_messages)
     text = contacts.scrub(text)
     text = pointers.add_quote_pointer(text, question)
@@ -92,10 +94,13 @@ def answer(messages: list[dict]) -> dict:
     notes = [prompt.unlisted_price_note(unlisted) if unlisted else "",
              injection.security_note(user_messages),
              documents.extra_rules(question)]
-    completion = complete(prompt.build(passages, history.recall(older, question), notes), shown)
+    recalled = history.recall(older, question)
+    completion = complete(prompt.build(passages, recalled, notes), shown)
 
     text, used = split_used_line(completion.text)
-    text = _check_reply(text, conversation, user_messages, focus)
+    # The passages, what was recalled and the conversation: all a figure in the reply may come from.
+    shown_to_model = "\n".join([*(p.text for p in passages), recalled, *(m["content"] for m in conversation)])
+    text = _check_reply(text, conversation, user_messages, focus, shown_to_model)
     text, sources = cite(text, used, passages)
     if videos and not sources:                      # a video question is answered from the list of titles
         text, sources = cite(text, [passages.index(videos) + 1], passages)

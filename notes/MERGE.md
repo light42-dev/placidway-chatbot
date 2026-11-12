@@ -84,6 +84,20 @@ What changed in behaviour, on purpose:
 - **The document guard no longer repeats the user's figure** when it refuses to
   put it in a table, so the amounts in a reply cannot differ between runs.
 
+## Chat page, Vercel setup and the figure check
+
+- `public/index.html` is a one-file chat page; `python -m bot.serve` serves it
+  locally and it was tried in a browser with a live question. `vercel.json` and
+  `.vercelignore` are written but **no deployment has been made**.
+- `bot/guards/figures.py` drops a reply sentence that states a number (10 or
+  more) found in no retrieved passage and nowhere in the conversation. On 243
+  recorded live replies it would have removed nothing. It makes no second model
+  call, because that would double the tokens a reply costs.
+- With this check the offline replay fails one turn, T10 `compare`. The
+  reference reply names three clinic prices, but the passage that lists them is
+  not retrieved for "is it cheaper in turkey or mexico", so a real model could
+  not have given them either. This is a retrieval gap, not yet fixed.
+
 ## Still open
 
 - Three coarse "does this text mention money" tests remain (search tokens in

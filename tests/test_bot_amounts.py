@@ -107,3 +107,12 @@ def test_a_figure_the_user_wants_published_is_refused_without_repeating_it():
     reply, _ = documents.make_safe(question, "| Listed | $18,995 |\n| Yours | 65k |", [])
     assert reply == f"{documents.FIGURE_REFUSAL}\n\n| Listed | $18,995 |"
     assert extract_amounts(reply) == {18995}
+
+
+def test_a_figure_the_model_was_not_shown_is_dropped():
+    from bot.guards.figures import NOTHING_LEFT, drop_unsupported_figures
+    shown = "Out-Patient Program | 3 Weeks | $18,995. 24/7 Medical Supervision."
+    reply = "The program is $18,995 for 3 weeks. It has an 85% success rate. Supervision is 24/7."
+    assert drop_unsupported_figures(reply, shown) == "The program is $18,995 for 3 weeks.  Supervision is 24/7."
+    assert drop_unsupported_figures("Recovery takes about 14 days.", shown) == NOTHING_LEFT
+    assert drop_unsupported_figures("1. Out-patient\n2. In-patient", shown) == "1. Out-patient\n2. In-patient"

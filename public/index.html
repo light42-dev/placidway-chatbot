@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ITC questions · PlacidWay</title>
+<style>
+  :root { --ink: #1c2733; --muted: #5b6876; --line: #d9e0e7; --page: #f4f7fa; --card: #ffffff;
+          --brand: #0b6e99; --user: #0b6e99; --error: #a12622; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: 0 16px; }
+  header { padding: 20px 0 12px; }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--muted); font-size: .9rem; }
+  #log { flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 12px 0 16px; }
+  .msg { max-width: 88%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .bot { align-self: flex-start; background: var(--card); border: 1px solid var(--line); }
+  .user { align-self: flex-end; background: var(--user); color: #fff; }
+  .error { align-self: flex-start; color: var(--error); background: #fdf1f0; border: 1px solid #f0c9c6; }
+  .sources { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: .85rem; color: var(--muted); }
+  .sources a { display: block; }
+  a { color: var(--brand); }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; }
+  .examples button { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px;
+                     font: inherit; font-size: .9rem; color: var(--brand); cursor: pointer; }
+  form { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 16px; background: var(--page); }
+  textarea { flex: 1; resize: none; min-height: 48px; max-height: 160px; padding: 12px; font: inherit;
+             border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); }
+  form button { padding: 0 18px; border: 0; border-radius: 12px; background: var(--brand); color: #fff; font: inherit;
+                font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  textarea:focus, button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  footer { color: var(--muted); font-size: .8rem; padding-bottom: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Questions about ITC (Immunity Therapy Center), Tijuana</h1>
+    <p>Answers come only from PlacidWay's pages about the clinic, with a link to the page used.</p>
+  </header>
+
+  <div id="log" aria-live="polite">
+    <div class="examples" id="examples">
+      <button type="button">How much is the adenocarcinoma treatment?</button>
+      <button type="button">What does the in-patient program include?</button>
+      <button type="button">¿Cuánto cuesta el tratamiento suprarrenal?</button>
+    </div>
+  </div>
+
+  <form id="form">
+    <textarea id="input" rows="1" maxlength="4000" placeholder="Ask about prices, programs or what is included"
+              aria-label="Your question" required></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+  <footer>This assistant gives no medical advice. For a personal price, request a free quote from PlacidWay.</footer>
+</main>
+
+<script>
+  const log = document.getElementById("log");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const send = document.getElementById("send");
+  const sessionId = "web-" + Math.random().toString(36).slice(2, 10);
+  const messages = [];            // the whole conversation; the bot keeps no memory of its own
+
+  function addBubble(kind, text) {
+    const bubble = document.createElement("div");
+    bubble.className = "msg " + kind;
+    bubble.textContent = text;    // textContent, never innerHTML: replies are shown as plain text
+    log.appendChild(bubble);
+    bubble.scrollIntoView({ block: "end", behavior: "smooth" });
+    return bubble;
+  }
+
+  function addSources(bubble, urls) {
+    const links = urls.filter((url) => /^https:\/\/(www\.)?placidway\.com\//.test(url));
+    if (!links.length) return;
+    const box = document.createElement("div");
+    box.className = "sources";
+    box.append("Source" + (links.length > 1 ? "s" : ""));
+    for (const url of links) {
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = decodeURIComponent(url.split("/").pop()).replace(/-/g, " ") || url;
+      box.appendChild(link);
+    }
+    bubble.appendChild(box);
+  }
+
+  async function ask(question) {
+    document.getElementById("examples")?.remove();
+    addBubble("user", question);
+    messages.push({ role: "user", content: question });
+    send.disabled = true;
+    const waiting = addBubble("bot", "…");
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, messages }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "The assistant is unavailable.");
+      messages.push({ role: "assistant", content: body.answer });
+      waiting.textContent = body.answer.replace(/\n*\s*Source:[^\n]*$/, "");   // the links are shown below instead
+      addSources(waiting, body.sources || []);
+    } catch (error) {
+      messages.pop();             // let the visitor send the question again
+      waiting.remove();
+      addBubble("error", error.message + " Please try again in a moment.");
+    } finally {
+      send.disabled = false;
+      input.focus();
+    }
+  }
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const question = input.value.trim();
+    if (!question || send.disabled) return;
+    input.value = "";
+    ask(question);
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); }
+  });
+  document.querySelectorAll("#examples button").forEach((button) =>
+    button.addEventListener("click", () => ask(button.textContent)));
+</script>
+</body>
+</html>
