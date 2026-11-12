@@ -90,7 +90,7 @@ def find_focus_page(user_messages: list[str], last_cited: str | None) -> str | N
     for message in reversed(user_messages):
         lowered = message.lower()
         for page in PAGES:
-            if any(re.search(rf"\b{re.escape(topic)}", lowered) for topic in page.topics):
+            if any(re.search(rf"\b{topic}", lowered) for topic in page.topics):
                 return page.key
     return last_cited
 
