@@ -1,9 +1,7 @@
-# Not needed to serve the bot: the grading suite, build notes and local files.
+# Not needed to serve the bot: the grading suite and local files.
 tests
 botsuite
 personas
-agents
-notes
 reports
 scripts
 .venv

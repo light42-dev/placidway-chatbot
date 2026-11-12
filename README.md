@@ -42,8 +42,7 @@ How a reply is made (`bot/chat.py` puts the steps in order):
 `bot/config.py` holds every limit and model name. `bot/amounts.py` is the one
 place that reads dollar amounts ("$18,995", "9 000$", "5 mil dólares") and
 knows which ones the pages list; the price, injection and document guards all
-use it. `notes/` has one file per
-persona from the build, and `notes/MERGE.md` says what was verified.
+use it. `STATUS.md` says what has been verified and what has not.
 
 ---
 
