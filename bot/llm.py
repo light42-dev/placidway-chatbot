@@ -1,7 +1,8 @@
 """The one place that calls the language models.
 
-Groq is the main provider. If Groq is rate-limited or fails, the same prompt
-is sent to Gemini. Both are called over plain HTTPS, with no SDK.
+Groq is the main provider. If a Groq model is rate-limited or fails, the same
+prompt is sent to the next Groq model, and finally to Gemini. All are called
+over plain HTTPS, with no SDK.
 """
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from functools import partial
 
 from . import config
 
@@ -59,17 +61,19 @@ def _post_json(url: str, headers: dict, body: dict) -> dict:
         return json.loads(response.read())
 
 
-def _call_groq(system: str, messages: list[dict]) -> Completion:
-    data = _post_json(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {"Authorization": f"Bearer {config.GROQ_API_KEY}"},
-        {"model": config.GROQ_MODEL, "temperature": 0, "max_tokens": config.MAX_OUTPUT_TOKENS,
-         "messages": [{"role": "system", "content": system}, *messages]})
+def _call_groq(model: str, system: str, messages: list[dict]) -> Completion:
+    body = {"model": model, "temperature": 0, "max_tokens": config.MAX_OUTPUT_TOKENS,
+            "messages": [{"role": "system", "content": system}, *messages]}
+    if "gpt-oss" in model:
+        body["reasoning_effort"] = "low"        # these models reason first; keep that short and cheap
+    data = _post_json("https://api.groq.com/openai/v1/chat/completions",
+                      {"Authorization": f"Bearer {config.GROQ_API_KEY}"}, body)
     text = data["choices"][0]["message"].get("content") or ""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)      # some models show their reasoning
+    text = text.replace("\u2011", "-").replace("\u2010", "-")       # some models write typographic hyphens
     usage = data.get("usage") or {}
     return Completion(text.strip(), usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0),
-                      f"groq:{config.GROQ_MODEL}")
+                      f"groq:{model}")
 
 
 def _call_gemini(system: str, messages: list[dict]) -> Completion:
@@ -101,8 +105,9 @@ def _call_with_retry(call, system: str, messages: list[dict], retry: bool) -> Co
 
 
 def complete(system: str, messages: list[dict]) -> Completion:
-    """Try Groq, then Gemini. Raises LLMError if neither gives a non-empty answer."""
-    providers = [("groq", config.GROQ_API_KEY, _call_groq), ("gemini", config.GEMINI_API_KEY, _call_gemini)]
+    """Try each Groq model, then Gemini. Raises LLMError if none gives a non-empty answer."""
+    providers = [(f"groq:{model}", config.GROQ_API_KEY, partial(_call_groq, model)) for model in config.GROQ_MODELS]
+    providers.append(("gemini", config.GEMINI_API_KEY, _call_gemini))
     failures: list[str] = []
     rate_limits = 0
     for name, key, call in providers:

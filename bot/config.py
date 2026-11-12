@@ -22,7 +22,11 @@ _load_env_file(ROOT / ".env")
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
+# Groq models, tried in order. Each has its own daily token allowance on the
+# free tier (200,000 tokens, about 90 replies), so the later ones keep replies
+# fast when the first runs out.
+GROQ_MODELS = [name.strip() for name in os.environ.get(
+    "GROQ_MODELS", "qwen/qwen3.8-27b,openai/gpt-oss-120b,openai/gpt-oss-20b").split(",") if name.strip()]
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 LLM_TIMEOUT_S = 20          # per provider call
