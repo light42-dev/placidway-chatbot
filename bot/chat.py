@@ -5,16 +5,19 @@ import re
 
 from . import config
 from .llm import complete
+from .medical import add_doctor_referral, is_medical_question
 from .pages import PAGE_BY_KEY, PAGES
-from .retriever import Passage, find_focus_page, load_index
+from .recall import earlier_questions
+from .retriever import Passage, load_index
 from .safety import CRISIS_PROMPT, is_crisis, make_crisis_reply_safe
+from .topic import current_focus
 
 RULES = """You are the PlacidWay assistant for ITC (Immunity Therapy Center), an alternative cancer treatment clinic in Tijuana, Mexico. You answer website visitors using ONLY the numbered passages below, which come from PlacidWay's pages.
 
 Rules:
 - Use only the passages. Never invent or estimate a price, an inclusion, an outcome or any other detail.
 - Never write URLs or a "Source:" line; links are added for you. Instead, end every reply with one last line in exactly this form: "USED: 1, 3", listing the numbers of the passages your facts came from, or "USED: none" if you stated no fact from the passages.
-- Prices are in US dollars. Give them with the context the page gives (program type, duration, what is included); list optional add-on prices only if asked. Never convert currencies or add prices into new totals. If the user mentions their budget, just give the listed prices, with no remark on it.
+- Prices are in US dollars. Give them with the context the page gives (program type, duration, what is included); list optional add-on prices only if asked. Never convert currencies or add prices into new totals. If the user mentions their budget, just give the listed prices, with no remark on it. Asked for the cheapest, give the one lowest matching listed price and its clinic.
 - If the passages do not contain the answer, say plainly that you don't know because PlacidWay's pages don't list it, and suggest requesting a free quote from PlacidWay. If only part of a question is covered, answer that part and say which part is not listed.
 - If the user suggests a price or claim that the passages do not state, say you can't confirm it, then give the listed figures.
 - Questions unrelated to these pages (for example crime, weather, news): say you can only answer from PlacidWay's pages about ITC and that they don't cover it.
@@ -102,9 +105,14 @@ def _cite(text: str, passages: list[Passage]) -> tuple[str, list[str]]:
             url = PAGE_BY_KEY[passages[number - 1].page].url
             if url not in urls:
                 urls.append(url)
-    if not urls and "$" in text and passages:
-        # A price was stated but no passage was named: cite the best-matching page.
-        urls.append(PAGE_BY_KEY[passages[0].page].url)
+    if not urls and passages and re.search(r"\d", text):
+        # A price or other figure was stated but no passage was named: cite the
+        # best-ranked passage holding one of the reply's numbers (for a price, else the top one).
+        figures = set(re.findall(r"\d[\d,]*\d|\d", text))
+        holder = next((p for p in passages if any(re.search(rf"(?<![\d,]){re.escape(f)}(?![\d,])", p.text)
+                                                   for f in figures)), passages[0] if "$" in text else None)
+        if holder:
+            urls.append(PAGE_BY_KEY[holder.page].url)
     if urls:
         text += "\n\nSource: " + " , ".join(urls)
     return text, urls
@@ -136,10 +144,13 @@ def answer(messages: list[dict]) -> dict:
     if is_crisis(str(conversation[-1].get("content", ""))):
         return _crisis_answer(conversation)
     user_messages = [str(m.get("content", "")) for m in conversation if m["role"] == "user"]
-    focus = find_focus_page(user_messages, _last_cited_page(conversation))
+    focus = current_focus(user_messages, _last_cited_page(conversation), load_index())
     passages = load_index().search(user_messages, focus_page=focus)
     history = _clean_history(conversation)
     dropped = conversation[:len(conversation) - len(history)]
-    completion = complete(_system_prompt(passages, _earlier_prices(dropped)), history)
+    prompt = _system_prompt(passages, _earlier_prices(dropped)) + earlier_questions(dropped)
+    completion = complete(prompt, history)
     text, sources = _cite(completion.text, passages)
+    if is_medical_question(user_messages[-1]):
+        text = add_doctor_referral(text)
     return _reply(text, sources, completion)
