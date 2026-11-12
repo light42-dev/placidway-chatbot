@@ -38,3 +38,10 @@ PAGES = [
 ]
 
 PAGE_BY_KEY = {page.key: page for page in PAGES}
+
+# Words that point at the clinic profile (founder, doctors, location). They count
+# only in the newest message: such a question is a one-off, and the package
+# discussed before it stays the subject of later follow-ups.
+CLINIC_PAGE = "profile"
+CLINIC_TOPICS = (r"found(ed|er|ing)\b", r"doctors?\b", r"physicians?\b", "medical director",
+                 r"staff\b", "medical team", "who runs", "owner", "accredit", r"located\b", r"location\b")

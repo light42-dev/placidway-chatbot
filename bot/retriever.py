@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from .config import CONTEXT_CHARS, ROOT
-from .pages import PAGES
+from .pages import CLINIC_PAGE, CLINIC_TOPICS, PAGES
 
 K1, B = 1.5, 0.75           # the usual BM25 constants
 EARLIER_WEIGHT = 0.4        # weight of the previous user message; halves for each one before it
@@ -38,7 +38,8 @@ SYNONYMS = [
     {"flight", "fly", "airport", "plane", "travel", "transport"},
     {"meal", "food", "eat", "nutrition", "nutritional"},
     {"video", "testimonial", "story", "review", "watch"},
-    {"doctor", "physician", "staff", "team"},
+    {"doctor", "physician", "staff", "team", "dr"},
+    {"addon", "add", "optional", "additional", "extra"},
 ]
 
 STOPWORDS = set("""a an and are as at be but by can do does for from how i if in is it its me my of on or
@@ -87,11 +88,13 @@ def expand(terms: set[str]) -> dict[str, float]:
 
 def find_focus_page(user_messages: list[str], last_cited: str | None) -> str | None:
     """The page the conversation is about: the newest topic word a user wrote, else the page cited last."""
-    for message in reversed(user_messages):
+    for age, message in enumerate(reversed(user_messages)):
         lowered = message.lower()
         for page in PAGES:
             if any(re.search(rf"\b{topic}", lowered) for topic in page.topics):
                 return page.key
+        if age == 0 and any(re.search(rf"\b{topic}", lowered) for topic in CLINIC_TOPICS):
+            return CLINIC_PAGE
     return last_cited
 
 

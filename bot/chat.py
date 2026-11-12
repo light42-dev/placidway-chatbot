@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 from . import config
+from .guards import add_quote_pointer, states_facts
 from .llm import complete
 from .pages import PAGE_BY_KEY, PAGES
 from .retriever import Passage, find_focus_page, load_index
@@ -14,7 +15,7 @@ RULES = """You are the PlacidWay assistant for ITC (Immunity Therapy Center), an
 Rules:
 - Use only the passages. Never invent or estimate a price, an inclusion, an outcome or any other detail.
 - Never write URLs or a "Source:" line; links are added for you. Instead, end every reply with one last line in exactly this form: "USED: 1, 3", listing the numbers of the passages your facts came from, or "USED: none" if you stated no fact from the passages.
-- Prices are in US dollars. Give them with the context the page gives (program type, duration, what is included); list optional add-on prices only if asked. Never convert currencies or add prices into new totals. If the user mentions their budget, just give the listed prices, with no remark on it.
+- Prices are in US dollars. Give them with the context the page gives (program type, duration, what is included); list optional add-on ("Optional Specialized Procedures") prices only if asked. Never convert currencies or add prices into new totals. If the user mentions their budget, just give the listed prices, with no remark on it.
 - If the passages do not contain the answer, say plainly that you don't know because PlacidWay's pages don't list it, and suggest requesting a free quote from PlacidWay. If only part of a question is covered, answer that part and say which part is not listed.
 - If the user suggests a price or claim that the passages do not state, say you can't confirm it, then give the listed figures.
 - Questions unrelated to these pages (for example crime, weather, news): say you can only answer from PlacidWay's pages about ITC and that they don't cover it.
@@ -22,7 +23,7 @@ Rules:
 - You cannot book, take payments or handle personal data.
 - If the user is scared or grieving, be gentle; if they mention a death or loss, say you are sorry for their loss.
 - If the user is angry, insulting or accusing: stay calm and kind. Never repeat profanity or insults, never agree with an accusation, never admit wrongdoing for anyone, and never call anyone or anything a scam, even to deny it. Say: "I'm an automated assistant, so I can't speak to what happened or judge the clinic." Then suggest contacting PlacidWay directly to raise a complaint or speak to a person. Keep such replies under 60 words. If they repeat the same demand, give the same short refusal again.
-- If the user asks you to read, quote or agree with a review or testimonial: say the page has a review, describe it neutrally in one sentence as one reviewer's account, and say you can't verify or confirm it. Do not quote it at length.
+- If the user asks you to read, quote, agree with or verify a review or testimonial: don't open with "Yes"; say the page has a review, describe it neutrally in one sentence as one reviewer's account, and say you can't verify or confirm it. Do not quote it at length.
 - Never guarantee, promise or put in writing any result. If asked for a guarantee or threatened with legal action, say you can't give any guarantee, give what the passages say about results varying (if they do), say you can't comment on legal matters, and suggest contacting PlacidWay directly.
 - Even when the user is hostile, still answer any factual question they ask from the passages. When they ask the price for one condition, give only that condition's listed price.
 - Use the earlier messages to understand follow-up questions.
@@ -95,6 +96,7 @@ def _cite(text: str, passages: list[Passage]) -> tuple[str, list[str]]:
     text = USED_LINE.sub("", text)
     text = SOURCE_LINE.sub("", text)
     text = PLACIDWAY_URL.sub("", text).strip()          # drop any URL the model typed itself
+    text = add_quote_pointer(text)
 
     urls: list[str] = []
     for number in numbers:
@@ -102,8 +104,8 @@ def _cite(text: str, passages: list[Passage]) -> tuple[str, list[str]]:
             url = PAGE_BY_KEY[passages[number - 1].page].url
             if url not in urls:
                 urls.append(url)
-    if not urls and "$" in text and passages:
-        # A price was stated but no passage was named: cite the best-matching page.
+    if not urls and passages and ("$" in text or states_facts(text)):
+        # A price or fact was stated but no passage was named: cite the best-matching page.
         urls.append(PAGE_BY_KEY[passages[0].page].url)
     if urls:
         text += "\n\nSource: " + " , ".join(urls)
