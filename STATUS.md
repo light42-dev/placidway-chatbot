@@ -4,7 +4,8 @@
 
 | Check | Result |
 |---|---|
-| `pytest tests/test_suite_selfcheck.py tests/test_bot_amounts.py` (no bot or API key needed) | 99 passed |
+| `pytest tests/test_suite_selfcheck.py tests/test_bot_amounts.py tests/test_bot_retrieval.py tests/test_ingest.py` (no bot or API key needed) | 107 passed |
+| Deployed bot at https://placidway-chatbot-alpha.vercel.app, the 8 assessment questions in one chat, one run (13 Nov 2026) | all 8 behave as expected; answers in `docs/test-results.md` |
 | `python scripts/offline_replay.py` (all 20 personas, stand-in model) | every turn passes |
 | Live, three runs each: T01, E01 | all turns pass; latency and consistency pass |
 | Live, three runs: E02 | all turns pass; latency failed because the slow fallback model answered |
@@ -22,13 +23,14 @@ does not show what a real model will write.
 
 - **Fourteen personas have never been run against a live model:** E04, E06, E07,
   T02, T04 to T13. E03 was run live before its last fix and failed one turn then.
-- **No deployment has been made.** `vercel.json` and `api/chat.py` have only been
-  exercised through the local server.
+- **Preview deployments have no API keys.** The keys are set for Vercel's Production environment only, so branch
+  previews load the chat page but cannot answer. Fixes were tested on production after merging.
 - **The retry** (the model is asked once more when it invents a figure) has only
   been run with a stand-in model. On 243 recorded live replies it would not have fired.
-- **The weekly refresh** (`.github/workflows/refresh.yml`) has never run. GitHub
-  runs scheduled workflows from the default branch only. Whether placidway.com
-  answers GitHub's servers is unknown.
+- **The weekly refresh** (`.github/workflows/refresh.yml`) has never run. It is on the default branch now, so its
+  first scheduled run is the next Monday. Whether placidway.com answers GitHub's servers is unknown.
+- **The saved page text was not re-crawled after the card-price fix** (13 Nov 2026). The fix was applied to the
+  saved text with the same function the crawler now uses, and checked by hand against the live comparison page.
 
 ## Known limits
 
@@ -45,6 +47,8 @@ does not show what a real model will write.
 - **Passage budget.** About 4,200 characters of passages fit in a prompt. A
   typical reply uses about 2,400 tokens; the limit in the tests is 6,000 so that
   a retried reply also passes.
+- **Comparisons can be incomplete.** The bot quotes only listed prices and refuses a like-for-like comparison when
+  procedures differ, but it does not always list every clinic for a country.
 - **No exact-quote check.** Code verifies prices and other figures against what
   the model was shown, and builds the source links itself, but does not check
   the wording of each claim against a quote.
