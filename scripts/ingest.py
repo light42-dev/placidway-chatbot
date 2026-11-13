@@ -85,6 +85,25 @@ def fetch(url: str) -> str:
         return response.read().decode("utf-8", errors="replace")
 
 
+# The price shown on a package card, for example "Price starting from $24,000".
+CARD_PRICE = re.compile(r"^Price starting from \$[\d,]+$")
+
+
+def attach_card_prices(lines: list[str]) -> list[str]:
+    """Move each package card's price below the card's own title.
+
+    In the HTML of the comparison page's package cards the price comes before
+    the title. Read top to bottom, each price would then sit under the card
+    before it and be given to the wrong clinic. A price line directly
+    followed by a heading therefore changes places with that heading.
+    """
+    lines = list(lines)
+    for i in range(len(lines) - 1):
+        if CARD_PRICE.match(lines[i]) and lines[i + 1].startswith("# "):
+            lines[i], lines[i + 1] = lines[i + 1], lines[i]
+    return lines
+
+
 def extract_text(html: str) -> str:
     parser = TextExtractor()
     parser.feed(html)
@@ -93,7 +112,7 @@ def extract_text(html: str) -> str:
     for line in parser.lines:
         if not lines or line != lines[-1]:      # drop immediate repeats
             lines.append(line)
-    return "\n".join(lines)
+    return "\n".join(attach_card_prices(lines))
 
 
 def split_passages(text: str) -> list[str]:
