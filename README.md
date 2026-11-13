@@ -1,5 +1,11 @@
 # PlacidWay ITC chatbot and its test suite
 
+**Live bot: https://placidway-chatbot-alpha.vercel.app**
+
+- Answers to the 8 assessment questions: [`docs/test-results.md`](docs/test-results.md)
+- Known limitations and next steps: [`docs/write-up.md`](docs/write-up.md)
+- What has and has not been verified: [`STATUS.md`](STATUS.md)
+
 This repository holds two things: the chatbot (`bot/`, `api/`, `scripts/`,
 `data/`) and the pytest suite that grades it (`tests/`, `botsuite/`,
 `personas/`). The bot is described first; the suite's own documentation
@@ -16,22 +22,34 @@ python -m bot.serve --port 8101         # chat page: http://127.0.0.1:8101/  (en
 python scripts/ingest.py                # refresh: re-crawl the 7 pages, rebuild data/index.json
                                         # (.github/workflows/refresh.yml does this weekly)
 python scripts/offline_replay.py        # play all personas with a stand-in model, no API cost
-pytest tests/test_bot_amounts.py        # the bot's reading of prices, checked against the grader's
+pytest tests/test_bot_amounts.py tests/test_bot_retrieval.py tests/test_ingest.py   # offline checks of the bot
 ```
 
-Deploying to Vercel (not yet done; the setup has only been run locally):
+Deployed on Vercel at the address above. To deploy your own copy:
 
-1. Import the repository in Vercel. No framework and no build command are needed.
+1. Import the repository in Vercel and choose the "Other" preset (Vercel suggests
+   "Python", which expects a different layout). No build command is needed.
 2. Add `GROQ_API_KEY` and `GEMINI_API_KEY` under Settings, Environment Variables.
 3. Deploy. `public/index.html` is the chat page at `/`, `api/chat.py` is the
    endpoint at `/api/chat`, and `.vercelignore` leaves the test suite out.
+
+### Tools and models, and why
+
+| Choice | Why |
+|---|---|
+| Python, standard library only | Nothing to install to run the bot, and every step is plain code that can be read and changed. |
+| Keyword search (BM25) in memory | The 7 pages make about 180 passages. That is small enough to rank in memory with no embedding model, vector database or extra service to pay for or keep running. |
+| Groq as the main model provider | Free tier, and replies arrive in about a second. Three Groq models are tried in order because each has its own daily allowance. |
+| Gemini Flash-Lite as the fallback | A second free provider, so the bot still answers when Groq is rate-limited or down. It is slower (3 to 8 seconds). |
+| Vercel (free plan) | A public URL with no server to manage. It has no disk to write to at run time, so the crawled text and index are committed in `data/` and shipped with the app. |
+| Checks in code after the model | The model is not trusted to follow the rules. Code removes any price or figure it was not shown and builds the source links itself. |
 
 How a reply is made (`bot/chat.py` puts the steps in order):
 
 | Step | Where | What happens |
 |---|---|---|
 | 1. Early exits | `bot/guards/crisis.py`, `abuse.py` | A user in crisis gets a crisis line and no prices. Flooding or bulk-export requests get a fixed refusal with no model call. |
-| 2. Retrieve | `bot/retrieval/` | Keyword (BM25) search over the passages in `data/index.json`, boosted towards the page under discussion (`focus.py`). Spanish and Arabic words are mapped to English; misspellings are corrected. Video titles and price-table rows have their own lookups. |
+| 2. Retrieve | `bot/retrieval/` | Keyword (BM25) search over the passages in `data/index.json`, boosted towards the page under discussion (`focus.py`). Spanish and Arabic words are mapped to English; misspellings are corrected. Video titles, price-table rows and a package's "Included in" sections have their own lookups. |
 | 3. Prompt | `bot/prompt.py`, `bot/history.py` | Fixed rules, the numbered passages, the newest 8 messages, and a short recall of what was said before those. |
 | 4. Model | `bot/llm.py` | Groq models in order, then Gemini Flash-Lite, each tried when the one before is rate-limited or fails. If the draft states a figure the model was not shown, it is asked once more. |
 | 5. Check the reply | `bot/guards/` | Code enforces what must hold whatever the model wrote: no unlisted or converted prices, no dictated wording, no foreign links or contact details, no forged documents, no figure the model was not shown, a free-quote pointer when the pages lack the answer, a doctor pointer on health questions. |
