@@ -162,8 +162,8 @@ Tijuana,Mexico
 Tijuana,Mexico
 # Unlock the Best Alternative Medicine Packages Just for You
 Discover the ultimate Alternative Medicine packages designed to meet your health and wellness goals. Choose the perfect fit for your journey.
-Price starting from $4,500
 # Local Treatment Course in Tbilisi, Georgia by Eliava
+Price starting from $4,500
 Eliava Phage Therapy Center
 Alternative Medicine
 Tbilisi,Georgia
@@ -171,13 +171,13 @@ Tbilisi,Georgia
 Polyclinic Markov
 Alternative Medicine
 Murter,Croatia
-Price starting from $24,000
 # Integrative Cancer Treatment
+Price starting from $24,000
 Verita Life Thailand - Cancer Treatment in Bangkok
 Alternative Medicine
 Bangkok,Thailand
-Price starting from $1,500
 # Ozone Therapy Package at Wolistic Center - Aesthetic & Wellness Clinic in Istanbul Turkey, Istanbul, Turkey
+Price starting from $1,500
 Wolistic Center - Aesthetic & Wellness Clinic in Istanbul Turkey
 Alternative Medicine
 Istanbul,Turkey
