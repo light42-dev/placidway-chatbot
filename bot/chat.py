@@ -13,7 +13,7 @@ from .citations import cite, split_used_line
 from .guards import abuse, contacts, crisis, documents, figures, injection, pointers, prices
 from .llm import Completion, LLMError, complete
 from .pages import PAGES
-from .retrieval import Passage, focus_page, load_index, pin_price_rows, video_passage
+from .retrieval import Passage, focus_page, load_index, pin_inclusions, pin_price_rows, video_passage
 
 NO_TOKENS = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
@@ -48,11 +48,12 @@ def _last_cited_page(conversation: list[dict]) -> str | None:
 
 
 def _find_passages(user_messages: list[str], focus: str | None, videos: Passage | None) -> list[Passage]:
-    """Keyword search, plus the two cases it handles badly: video titles and price-table rows."""
+    """Keyword search, plus the cases it handles badly: video titles, price-table rows and inclusion lists."""
     index = load_index()
     budget = config.CONTEXT_CHARS - (len(videos.text) if videos else 0)
     passages = ([videos] if videos else []) + index.search(user_messages, focus, budget)
-    return pin_price_rows(passages, user_messages, index.passages, focus)
+    passages = pin_price_rows(passages, user_messages, index.passages, focus)
+    return pin_inclusions(passages, user_messages[-1], index.passages, focus)
 
 
 def _ask_model(system: str, shown: list[dict], shown_to_model: str) -> Completion:
