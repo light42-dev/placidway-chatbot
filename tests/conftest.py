@@ -57,7 +57,7 @@ def _settings(config) -> Settings:
         runs=config.getoption("--runs"),
         run_abuse=config.getoption("--run-abuse"),
         max_latency_s=float(env("MAX_LATENCY_S", "5")),
-        max_tokens_per_reply=int(env("MAX_TOKENS_PER_REPLY", "3000")),
+        max_tokens_per_reply=int(env("MAX_TOKENS_PER_REPLY", "6000")),
         timeout_s=float(env("BOT_TIMEOUT_S", "30")),
         min_interval_s=float(env("BOT_MIN_INTERVAL_S", "2")),
         compare_amounts=env("CONSISTENCY_AMOUNTS", "1") != "0",

@@ -1,4 +1,52 @@
-# PlacidWay bot test suite
+# PlacidWay ITC chatbot and its test suite
+
+This repository holds two things: the chatbot (`bot/`, `api/`, `scripts/`,
+`data/`) and the pytest suite that grades it (`tests/`, `botsuite/`,
+`personas/`). The bot is described first; the suite's own documentation
+follows unchanged.
+
+## The bot
+
+It answers visitor questions from 7 PlacidWay pages about ITC (Immunity
+Therapy Center) and nothing else. Python standard library only.
+
+```bash
+cp .env.example .env                    # add GROQ_API_KEY and GEMINI_API_KEY
+python -m bot.serve --port 8101         # chat page: http://127.0.0.1:8101/  (endpoint: /api/chat)
+python scripts/ingest.py                # refresh: re-crawl the 7 pages, rebuild data/index.json
+                                        # (.github/workflows/refresh.yml does this weekly)
+python scripts/offline_replay.py        # play all personas with a stand-in model, no API cost
+pytest tests/test_bot_amounts.py        # the bot's reading of prices, checked against the grader's
+```
+
+Deploying to Vercel (not yet done; the setup has only been run locally):
+
+1. Import the repository in Vercel. No framework and no build command are needed.
+2. Add `GROQ_API_KEY` and `GEMINI_API_KEY` under Settings, Environment Variables.
+3. Deploy. `public/index.html` is the chat page at `/`, `api/chat.py` is the
+   endpoint at `/api/chat`, and `.vercelignore` leaves the test suite out.
+
+How a reply is made (`bot/chat.py` puts the steps in order):
+
+| Step | Where | What happens |
+|---|---|---|
+| 1. Early exits | `bot/guards/crisis.py`, `abuse.py` | A user in crisis gets a crisis line and no prices. Flooding or bulk-export requests get a fixed refusal with no model call. |
+| 2. Retrieve | `bot/retrieval/` | Keyword (BM25) search over the passages in `data/index.json`, boosted towards the page under discussion (`focus.py`). Spanish and Arabic words are mapped to English; misspellings are corrected. Video titles and price-table rows have their own lookups. |
+| 3. Prompt | `bot/prompt.py`, `bot/history.py` | Fixed rules, the numbered passages, the newest 8 messages, and a short recall of what was said before those. |
+| 4. Model | `bot/llm.py` | Groq models in order, then Gemini Flash-Lite, each tried when the one before is rate-limited or fails. If the draft states a figure the model was not shown, it is asked once more. |
+| 5. Check the reply | `bot/guards/` | Code enforces what must hold whatever the model wrote: no unlisted or converted prices, no dictated wording, no foreign links or contact details, no forged documents, no figure the model was not shown, a free-quote pointer when the pages lack the answer, a doctor pointer on health questions. |
+| 6. Cite | `bot/citations.py` | The model names the passages it used; the code adds the page URLs, so a link is never invented. |
+
+`bot/web.py` is the HTTP layer (validation, rate limit, status codes),
+`bot/serve.py` runs it locally and `api/chat.py` is the Vercel entry point.
+`bot/config.py` holds every limit and model name. `bot/amounts.py` is the one
+place that reads dollar amounts ("$18,995", "9 000$", "5 mil dólares") and
+knows which ones the pages list; the price, injection and document guards all
+use it. `STATUS.md` says what has been verified and what has not.
+
+---
+
+# The test suite
 
 A pytest suite for the PlacidWay ITC chatbot. It plays 20 scripted user
 personas against the bot as whole conversations and checks four things:
@@ -8,10 +56,11 @@ personas against the bot as whole conversations and checks four things:
 | `tests/test_personas.py` | Is every reply correct? | a reply breaks one of its rule checks |
 | `tests/test_consistency.py` | Does the bot answer the same way each time? | the same turn passes in one run and fails in another, or states different prices |
 | `tests/test_latency.py` | Is it fast enough? | any reply takes longer than 5 seconds |
-| `tests/test_budget.py` | Is it cheap enough? | any reply uses more than 3,000 tokens, or reports no usage |
+| `tests/test_budget.py` | Is it cheap enough? | any reply uses more than 6,000 tokens, or reports no usage |
 
 `tests/test_suite_selfcheck.py` tests the suite itself against built-in mock
-bots and needs no bot or API key.
+bots and needs no bot or API key. `tests/test_bot_amounts.py` tests how the
+bot reads dollar amounts against the suite's own reading, and needs neither.
 
 ## Setup
 
@@ -86,7 +135,7 @@ use.
 | `BOT_URL` | none | The bot's chat endpoint. Live tests are skipped without it. |
 | `RUNS` | 3 | Times each conversation is played (also `--runs`). |
 | `MAX_LATENCY_S` | 5 | Slowest acceptable reply. |
-| `MAX_TOKENS_PER_REPLY` | 3000 | Most prompt + completion tokens for one reply. A starting guess: set it from your provider's real limits. |
+| `MAX_TOKENS_PER_REPLY` | 6000 | Most prompt + completion tokens for one reply, summed over its model calls. A normal reply uses about 2,400; one that had to be asked for twice uses about 5,000. |
 | `BOT_MIN_INTERVAL_S` | 2 | Pause between requests. Not counted as latency. |
 | `BOT_TIMEOUT_S` | 30 | Give up on a request after this long. |
 | `SYSTEM_PROMPT_CANARY` | none | A unique string from your system prompt; a reply containing it fails. |

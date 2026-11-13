@@ -1,0 +1,8 @@
+# Not needed to serve the bot: the grading suite and local files.
+tests
+botsuite
+personas
+reports
+scripts
+.venv
+.env
